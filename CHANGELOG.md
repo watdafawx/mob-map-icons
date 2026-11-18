@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.1
+
+- JourneyMap: new config `journeymapFrame` (AUTO default, ON, OFF) so JourneyMap's marker no longer fights
+  our icon styles. AUTO hides the marker for self-contained styles (BADGE, HEAD_PIN, SILHOUETTE, RETRO,
+  CHIBI, PAPER_INK) and, for OUTLINE and SHADOW, keeps the marker and draws the mob plain inside it, so
+  there is one frame instead of two. ON always keeps the marker, OFF always hides it.
+- JourneyMap: the square box around player icons is gone.
+- API: `MobIconApi.getPng` / `getResourceIcon` overloads that take an `IconStyle`.
+
 ## 0.4.0
 
 - Players: other players are drawn from their own skin and model, full body and turning with their
