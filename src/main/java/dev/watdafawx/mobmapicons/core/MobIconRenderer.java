@@ -151,13 +151,18 @@ public final class MobIconRenderer {
      */
     @Nullable
     public static NativeImage render(Entity entity, IconMode mode, int outSize, int yawBucket, @Nullable Frame frame) {
+        return render(entity, mode, outSize, yawBucket, frame, false);
+    }
+
+    static NativeImage render(Entity entity, IconMode mode, int outSize, int yawBucket, @Nullable Frame frame, boolean top) {
+        float pitch = top ? 90 : PITCH_DEGREES;
         RenderSystem.assertOnRenderThread();
         int size = renderSizeFor(outSize);
         pose(entity);
-        float yaw = YAW_DEGREES + facingCorrection(entity) - Math.floorMod(yawBucket, MobIconApi.YAW_BUCKETS) * 45.0F;
+        float yaw = (top ? 180 : YAW_DEGREES) + facingCorrection(entity) - Math.floorMod(yawBucket, MobIconApi.YAW_BUCKETS) * 45.0F;
 
         float bbHeight = Math.max(entity.getBbHeight(), 0.1F);
-        View probeView = probe(entity, size, PITCH_DEGREES, yaw, 0.0F, bbHeight / 2.0F);
+        View probeView = probe(entity, size, pitch, yaw, 0.0F, bbHeight / 2.0F);
         if (probeView == null) return null;
         try {
             PixelBounds px = probeView.bounds;
@@ -171,7 +176,7 @@ public final class MobIconRenderer {
             float side;
 
             float[] headRect = mode == IconMode.HEAD && headCropApplies(entity)
-                    ? findHead(entity, probeView, PITCH_DEGREES, yaw) : null;
+                    ? findHead(entity, probeView, pitch, yaw) : null;
             if (headRect != null) {
                 // The head as drawn: where the model's head part is (see findHead). The edge follows
                 // the head's height more than its width, because the height barely changes with the
@@ -186,7 +191,7 @@ public final class MobIconRenderer {
                 // entity's vertical axis, but heads sit forward of it, so the horizontal centre comes
                 // from the pixels above the eyes, and the square moves up if the head would be cut off.
                 float head = headSize(entity) * HEAD_MARGIN;
-                float eyeY = entity.getEyeHeight() * Mth.cos(PITCH_DEGREES * Mth.DEG_TO_RAD);
+                float eyeY = entity.getEyeHeight() * Mth.cos(pitch * Mth.DEG_TO_RAD);
                 int eyeRow = Mth.clamp(Math.round((probeView.top - eyeY) / unit), px.minY, px.maxY);
                 PixelBounds above = PixelBounds.of(probeView.image, px.minY, eyeRow);
                 if (above == null) above = px;
@@ -201,7 +206,7 @@ public final class MobIconRenderer {
             }
 
             // Pass 2: the final square, then box-filter down to the output size.
-            try (NativeImage full = draw(entity, size, PITCH_DEGREES, yaw,
+            try (NativeImage full = draw(entity, size, pitch, yaw,
                     cx - side / 2, cx + side / 2, cy - side / 2, cy + side / 2)) {
                 return downscale(full, outSize);
             }

@@ -37,10 +37,19 @@ public class MobMapIcons {
 
     public MobMapIcons(IEventBus modBus, ModContainer container) {
         if (FMLEnvironment.dist.isClient()) {
+            container.registerExtensionPoint(net.neoforged.neoforge.client.gui.IConfigScreenFactory.class,
+                    (mc, parent) -> new net.neoforged.neoforge.client.gui.ConfigurationScreen(container, parent));
+            modBus.addListener((net.neoforged.fml.event.config.ModConfigEvent.Loading event) -> configChanged(event));
+            modBus.addListener((net.neoforged.fml.event.config.ModConfigEvent.Reloading event) -> configChanged(event));
             container.registerConfig(ModConfig.Type.CLIENT, ClientConfig.SPEC);
             modBus.addListener(MobMapIcons::clientSetup);
             dev.watdafawx.mobmapicons.core.MobIconCore.init(modBus);
         }
+    }
+
+    private static void configChanged(net.neoforged.fml.event.config.ModConfigEvent event) {
+        if (event.getConfig().getSpec() == ClientConfig.SPEC)
+            dev.watdafawx.mobmapicons.core.MobIconCache.checkConfig();
     }
 
     /**

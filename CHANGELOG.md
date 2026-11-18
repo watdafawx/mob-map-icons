@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0
+
+- Ten live icon styles, default OUTLINE, applied to cached textures and PNGs.
+- In-game config screen and `/mobmapicons style <name>` / `reload` commands.
+- Bounded previous-generation textures during rebuilds; style comparison contact sheets.
+
 ## 0.2.0
 
 - Icons per variant: babies, sheep colours, villager type and profession, cat/wolf/horse/fish

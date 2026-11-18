@@ -5,6 +5,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import dev.watdafawx.mobmapicons.ClientConfig;
 import dev.watdafawx.mobmapicons.MobMapIcons;
 import dev.watdafawx.mobmapicons.api.IconMode;
+import dev.watdafawx.mobmapicons.api.IconStyle;
 import dev.watdafawx.mobmapicons.api.MobIconApi;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
@@ -82,7 +83,8 @@ public final class MobIconCache {
      * What an icon is of. {@code variant == null} is the type's default look (a fresh instance),
      * which the {@link EntityType} lookups use.
      */
-    record Key(EntityType<?> type, @Nullable IconVariant variant, int bucket) {
+    record Key(EntityType<?> type, @Nullable IconVariant variant, int bucket, IconStyle style) {
+        Key(EntityType<?> type, @Nullable IconVariant variant, int bucket) { this(type, variant, bucket, ClientConfig.iconStyle()); }
         ResourceLocation typeId() {
             return BuiltInRegistries.ENTITY_TYPE.getKey(type);
         }
@@ -126,6 +128,8 @@ public final class MobIconCache {
     };
 
     /** Config the cached icons were rendered with; a change throws them all away. Render thread. */
+    private static List<Object> renderedSettings;
+    private static final Map<Key, Entry> PREVIOUS = new LinkedHashMap<>();
     private static IconMode renderedMode = null;
     private static int renderedSize = -1;
     private static boolean renderedRotate;
@@ -158,7 +162,7 @@ public final class MobIconCache {
     /** PNG bytes of the type's ready default icon, or {@code null}. Does not queue a render. */
     public static byte @Nullable [] getPng(EntityType<?> type) {
         if (isBlacklisted(type)) return null;
-        return peek(new Key(type, null, 0)).png();
+        synchronized(LOCK) { Key k=new Key(type,null,0); Entry e=peek(k); return e.ready()?e.png():fallback(k).png(); }
     }
 
     /** Resource location of the type's default icon, or {@code null}. Queues a miss. */
@@ -201,7 +205,8 @@ public final class MobIconCache {
     static byte @Nullable [] pngForResource(String path) {
         Key key = RESOURCES.get(path);
         if (key == null || isBlacklisted(key.type())) return null;
-        return peek(key).png();
+        Entry e=peek(key);
+        synchronized(LOCK) { return e.ready()?e.png():fallback(key).png(); }
     }
 
     /** Every resource path the virtual pack currently serves. */
@@ -235,18 +240,26 @@ public final class MobIconCache {
             Entry type = ENTRIES.get(new Key(key.type(), null, 0));
             if (type != null && type.ready()) return type;
         }
-        return Entry.PENDING;
+        synchronized (LOCK) { return fallback(key); }
     }
 
     /** The entry for {@code key}; queues a render (copying {@code source}'s look) when there is none. */
+    private static Entry fallback(Key key) {
+        for (var e : PREVIOUS.entrySet()) {
+            Key k=e.getKey();
+            if(k.type()==key.type() && java.util.Objects.equals(k.variant(),key.variant()) && k.bucket()==key.bucket()) return e.getValue();
+        }
+        return Entry.PENDING;
+    }
+
     private static Entry lookup(Key key, @Nullable Entity source) {
         synchronized (LOCK) {
             Entry entry = ENTRIES.get(key);
-            if (entry != null) return entry;
+            if (entry != null) return entry.ready() || entry.failed() ? entry : fallback(key);
             ENTRIES.put(key, Entry.PENDING);
         }
         QUEUE.addLast(new Request(key, source));
-        return Entry.PENDING;
+        synchronized (LOCK) { return fallback(key); }
     }
 
     /** The entry for {@code key} without queueing; {@link Entry#PENDING} when unknown. */
@@ -293,6 +306,14 @@ public final class MobIconCache {
      * reload and whenever iconMode, iconSize or rotateWithHeading changes (the cache also notices
      * those by itself). Safe from any thread.
      */
+    public static void checkConfig() {
+        onRenderThread(() -> {
+            List<Object> settings=ClientConfig.iconSettings();
+            if(renderedSettings != null && !settings.equals(renderedSettings)) invalidateAll();
+            renderedSettings=settings;
+        });
+    }
+
     public static void invalidateAll() {
         onRenderThread(() -> {
             clearAll();
@@ -304,11 +325,23 @@ public final class MobIconCache {
         QUEUE.clear();
         List<Entry> old;
         synchronized (LOCK) {
-            old = new ArrayList<>(ENTRIES.values());
+            old = new ArrayList<>();
+            ENTRIES.forEach((key,value) -> {
+                if(value.ready()) {
+                    PREVIOUS.entrySet().removeIf(e -> {
+                        Key k=e.getKey();
+                        boolean same=k.type()==key.type() && java.util.Objects.equals(k.variant(),key.variant()) && k.bucket()==key.bucket();
+                        if(same) old.add(e.getValue());
+                        return same;
+                    });
+                    PREVIOUS.put(key,value);
+                }
+            });
+            while(PREVIOUS.size()>MAX_ENTRIES) {var it=PREVIOUS.values().iterator();old.add(it.next());it.remove();}
             ENTRIES.clear();
         }
         old.forEach(MobIconCache::release);
-        RESOURCES.clear();
+        RESOURCES.entrySet().removeIf(e -> !PREVIOUS.containsKey(e.getValue()));
         FRAMES.clear();
         generation++;
         // Pending callbacks get a failure rather than hanging forever.
@@ -383,12 +416,13 @@ public final class MobIconCache {
         IconMode mode = ClientConfig.iconMode();
         int size = ClientConfig.iconSize();
         boolean rotate = ClientConfig.rotateWithHeading();
-        if (mode != renderedMode || size != renderedSize || rotate != renderedRotate) {
+        if (!ClientConfig.iconSettings().equals(renderedSettings)) {
             if (renderedMode != null) {
                 MobMapIcons.LOG.info("Icon config changed ({} {}px rotate={} -> {} {}px rotate={}); re-rendering icons",
                         renderedMode, renderedSize, renderedRotate, mode, size, rotate);
                 clearAll();
             }
+            renderedSettings = ClientConfig.iconSettings();
             renderedMode = mode;
             renderedSize = size;
             renderedRotate = rotate;
@@ -403,7 +437,7 @@ public final class MobIconCache {
             }
         }
 
-        for (int i = 0; i < RENDERS_PER_FRAME; i++) {
+        for (int i = 0; i < (ClientConfig.iconStyle().extraRender() ? 1 : RENDERS_PER_FRAME); i++) {
             Request request = QUEUE.pollFirst();
             if (request == null) break;
             Key key = request.key();
@@ -441,10 +475,16 @@ public final class MobIconCache {
                             entity.getBbWidth(), entity.getBbHeight());
                 }
             }
-            image = MobIconRenderer.render(entity, mode, outSize, key.bucket(), frame);
+            image = MobIconRenderer.render(entity, key.style()==IconStyle.CHIBI || key.style()==IconStyle.TOP_DOWN ? IconMode.FULL_BODY : mode, outSize, key.bucket(), key.style()==IconStyle.TOP_DOWN ? null : frame, key.style()==IconStyle.TOP_DOWN);
             if (image == null) {
                 MobMapIcons.LOG.debug("No icon for {}: it draws nothing", typeId);
                 return Entry.FAILED;
+            }
+            NativeImage rendered = image;
+            image = null;
+            try (NativeImage raw = rendered;
+                 NativeImage head = key.style().extraRender() ? MobIconRenderer.render(entity, IconMode.HEAD, outSize, key.bucket(), null) : null) {
+                image = IconStyles.apply(key.style(), raw, head, entity);
             }
             byte[] png = image.asByteArray();
             ResourceLocation id = ResourceLocation.fromNamespaceAndPath(MobMapIcons.MODID, "icons/"
@@ -467,6 +507,7 @@ public final class MobIconCache {
     private static ResourceLocation resourceLocation(Key key) {
         ResourceLocation typeId = key.typeId();
         String path = RESOURCE_PREFIX + typeId.getNamespace() + "/" + typeId.getPath();
+        path += "/" + key.style().name().toLowerCase(java.util.Locale.ROOT) + "_g" + generation;
         if (key.variant() != null || key.bucket() != 0) {
             path += "/" + (key.variant() == null ? "default" : key.variant().hash()) + "_" + key.bucket() + "_g" + generation;
         }

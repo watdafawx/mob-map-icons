@@ -45,10 +45,19 @@ game from loading.
 
 ## Config
 
-`config/mob_map_icons-client.toml`
+`config/mob_map_icons-client.toml`, or **Mods > Mob Map Icons > Config**. Changes apply live.
+
+`/mobmapicons style <name>` switches appearance; `/mobmapicons reload` rebuilds icons.
+Styles consume `iconMode`, except CHIBI (body plus head), HEAD_PIN (head), and TOP_DOWN
+(whole body from above). Category colours: Enemy/MONSTER red, NeutralMob yellow,
+water categories blue, AMBIENT grey, otherwise green. Modded entities follow these rules.
+Previous textures remain during lazy replacement (up to 512 fallback icons).
+`dump` and self-test write `styles.png` (mob rows, enum-order columns), per-style strips,
+and row/column labels in `styles.txt` / `styles-columns.txt`.
 
 | Option | Default | What |
 |---|---|---|
+| `iconStyle` | `OUTLINE` | PLAIN, OUTLINE, SILHOUETTE, BADGE, RETRO, TOP_DOWN, CHIBI, PAPER_INK, SHADOW, HEAD_PIN |
 | `iconMode` | `FULL_BODY` | `FULL_BODY` or `HEAD` |
 | `iconSize` | `16` | Icon edge length in pixels (8 to 64) |
 | `rotateWithHeading` | `true` | Turn each icon to face the way the mob is heading (8 directions) |
