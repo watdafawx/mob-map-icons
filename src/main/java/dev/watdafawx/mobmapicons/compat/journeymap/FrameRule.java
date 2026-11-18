@@ -22,7 +22,7 @@ import dev.watdafawx.mobmapicons.api.IconStyle;
  * PLAIN, since the marker already carries the hostility colour. With it hidden (OFF, or AUTO) the chosen
  * style is drawn as is.
  *
- * <p>AUTO keeps the marker whatever the style when {@code rotateWithHeading} is off: the tail on the
+ * <p>AUTO keeps the marker whatever the style when the icon shows no heading (no rotation, no arrow of ours): the tail on the
  * marker is then the only heading cue left. Pure logic, no JourneyMap types.
  */
 record FrameRule(IconStyle body, boolean hideFrame) {

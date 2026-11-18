@@ -124,7 +124,7 @@ final class MobIconScene {
     //   wait <ticks>                         pause the script
     //   close                                close the open screen
     //   reload                               resource reload (like F3+T)
-    //   cfg <ftbChunks|xaero|journeymap|tint> <true|false>, cfg mode <HEAD|FULL_BODY>, cfg size <n>,
+    //   cfg <ftbChunks|xaero|journeymap|tint|rotate|arrow> <true|false>, cfg mode <HEAD|FULL_BODY>, cfg size <n>,
     //   cfg style <ICON_STYLE>, cfg jmframe <AUTO|ON|OFF>
     //   log <text>                           echo to the log
     //   players                              (re)spawn the two fake remote players
@@ -220,6 +220,8 @@ final class MobIconScene {
                     case "ftbChunks" -> dev.watdafawx.mobmapicons.ClientConfig.FTB_CHUNKS_ENABLED.set(on);
                     case "xaero" -> dev.watdafawx.mobmapicons.ClientConfig.XAERO_ENABLED.set(on);
                     case "journeymap" -> dev.watdafawx.mobmapicons.ClientConfig.JOURNEYMAP_ENABLED.set(on);
+                    case "rotate" -> dev.watdafawx.mobmapicons.ClientConfig.ROTATE_WITH_HEADING.set(on);
+                    case "arrow" -> dev.watdafawx.mobmapicons.ClientConfig.HEADING_ARROW.set(on);
                     case "tint" -> dev.watdafawx.mobmapicons.ClientConfig.TINT_BY_HOSTILITY.set(on);
                     case "mode" -> dev.watdafawx.mobmapicons.ClientConfig.ICON_MODE.set(
                             dev.watdafawx.mobmapicons.api.IconMode.valueOf(n[1]));

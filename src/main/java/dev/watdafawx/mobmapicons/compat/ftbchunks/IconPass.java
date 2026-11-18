@@ -206,7 +206,7 @@ final class IconPass {
             if (!farm || !mergeable(e)) {
                 continue;
             }
-            ResourceLocation tex = MobIconApi.getIcon(e, 0);
+            ResourceLocation tex = MobIconApi.getIcon(e);
             if (tex == null) {
                 continue; // still rendering: stays its own icon until the next pass
             }

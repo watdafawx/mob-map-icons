@@ -298,6 +298,7 @@ public final class QuickOptions {
         rows.add(new Cycle<>("mode", ClientConfig.ICON_MODE, IconMode.values()));
         rows.add(new IntSlider("iconSize", ClientConfig.ICON_SIZE, 8, 64, 1));
         rows.add(new Toggle("rotateWithHeading", ClientConfig.ROTATE_WITH_HEADING));
+        rows.add(new Toggle("headingArrow", ClientConfig.HEADING_ARROW));
         rows.add(new Toggle("farmMode", ClientConfig.FARM_MODE));
         rows.add(new Toggle("players", ClientConfig.PLAYERS));
         rows.add(new Toggle("tintByHostility", ClientConfig.TINT_BY_HOSTILITY));

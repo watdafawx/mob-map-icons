@@ -80,12 +80,14 @@ public final class JourneyMapAdapter implements IClientPlugin {
         }
 
         int bucket = 0;
-        if (MobIconApi.rotateWithHeading()) {
+        if (MobIconApi.usesHeading()) {
             bucket = MobIconApi.yawBucket(mob.yBodyRot + (float) minimapRotation(ui));
         }
+        // JourneyMap's own heading arrow (its locator, turned by the mob's yaw) makes ours a double: skip ours then.
+        boolean ourArrow = MobIconApi.headingArrow() && !journeyMapShowsMobHeading(ui);
         FrameRule rule = FrameRule.of(ClientConfig.iconStyle(), ClientConfig.journeyMapFrame(),
-                MobIconApi.rotateWithHeading(), FrameHider.canHideFill());
-        ResourceLocation icon = paddedIcon(mob, bucket, rule);
+                MobIconApi.rotateWithHeading() || ourArrow, FrameHider.canHideFill());
+        ResourceLocation icon = paddedIcon(mob, bucket, rule, ourArrow);
         // JourneyMap clears this override each radar update. Never hand it a pending resource.
         if (icon != null) {
             wrapped.setEntityIconLocation(icon);
@@ -131,8 +133,9 @@ public final class JourneyMapAdapter implements IClientPlugin {
         if (MobIconApi.rotateWithHeading()) {
             bucket = MobIconApi.yawBucket(player.yBodyRot + (float) minimapRotation(event.getActiveUiState()));
         }
-        ResourceLocation plain = MobIconApi.getResourceIcon(player, bucket); // also queues the render
-        byte[] png = plain == null ? null : MobIconApi.getPng(player, bucket);
+        // No baked arrow on a player's face: JourneyMap draws its own heading marker for players.
+        ResourceLocation plain = MobIconApi.getResourceIcon(player, bucket, ClientConfig.iconStyle(), false); // also queues the render
+        byte[] png = plain == null ? null : MobIconApi.getPng(player, bucket, ClientConfig.iconStyle(), false);
         var map = png == null ? null : faces();
         if (map == null) return;
         // The square box JourneyMap draws round a face is sized for its 16 px face, not for our skin model.
@@ -185,9 +188,9 @@ public final class JourneyMapAdapter implements IClientPlugin {
      * JourneyMap's round marker when the marker stays, as is when it is hidden. The unpadded one if
      * fitting fails.
      */
-    private static ResourceLocation paddedIcon(LivingEntity mob, int bucket, FrameRule rule) {
-        ResourceLocation plain = MobIconApi.getResourceIcon(mob, bucket, rule.body()); // also queues the render
-        byte[] png = plain == null ? null : MobIconApi.getPng(mob, bucket, rule.body());
+    private static ResourceLocation paddedIcon(LivingEntity mob, int bucket, FrameRule rule, boolean arrow) {
+        ResourceLocation plain = MobIconApi.getResourceIcon(mob, bucket, rule.body(), arrow); // also queues the render
+        byte[] png = plain == null ? null : MobIconApi.getPng(mob, bucket, rule.body(), arrow);
         if (png == null) return null;
         CRC32 crc = new CRC32();
         crc.update(png);
@@ -231,6 +234,39 @@ public final class JourneyMapAdapter implements IClientPlugin {
             reflectionFailed = true;
             MobMapIcons.LOG.warn("JourneyMap minimap rotation not readable; icons assume a north-up minimap", e);
             return 0;
+        }
+    }
+
+    private static boolean headingReflectionFailed;
+    private static Method getFullProps;
+
+    /**
+     * Whether JourneyMap draws its own heading arrow for mobs on this map ("show mob heading", on by
+     * default; the minimap and the fullscreen map have one setting each). Read from JourneyMap's map
+     * properties by reflection; when it cannot be read, assume JourneyMap's default (on), so a failure
+     * never produces two arrows.
+     */
+    private static boolean journeyMapShowsMobHeading(UIState ui) {
+        if (headingReflectionFailed) return true;
+        try {
+            if (getInstance == null) {
+                Class<?> client = Class.forName("journeymap.client.JourneymapClient");
+                getInstance = client.getMethod("getInstance");
+                getActiveProps = client.getMethod("getActiveMiniMapProperties");
+            }
+            Object client = getInstance.invoke(null);
+            Object props;
+            if (ui != null && ui.ui == Context.UI.Fullscreen) {
+                if (getFullProps == null) getFullProps = client.getClass().getMethod("getFullMapProperties");
+                props = getFullProps.invoke(client);
+            } else {
+                props = getActiveProps.invoke(client);
+            }
+            return Boolean.TRUE.equals(fieldValue(props, "showMobHeading"));
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
+            headingReflectionFailed = true;
+            MobMapIcons.LOG.warn("JourneyMap's mob heading setting is not readable; assuming it is on and drawing no heading arrow of ours there", e);
+            return true;
         }
     }
 

@@ -20,8 +20,86 @@ final class IconStyles {
     private static int rgb(int r,int g,int b) { return 0xff000000 | b<<16 | g<<8 | r; }
     private static int lum(int c) { return ((c&255)*299 + ((c>>8)&255)*587 + ((c>>16)&255)*114)/1000; }
 
-    static NativeImage apply(IconStyle style, NativeImage source, NativeImage head, Entity entity) {
-        int n=source.getWidth(), col=category(entity);
+    /** Share of the icon edge the styled mob keeps when an arrow is added; the rest is the arrow's room. */
+    static final double ARROW_SHRINK = 0.75;
+    private static final int ARROW_FILL = 0xfff0f7fa; // ABGR: warm white
+    private static final int ARROW_EDGE = 0xff12121a; // ABGR: near black
+
+    /**
+     * The styled icon, {@code source}'s edge long. {@code arrow} is a heading bucket 0..7 (see
+     * {@code MobIconApi.yawBucket}) or -1 for none. With an arrow the whole styled icon is made at
+     * {@link #ARROW_SHRINK} of the edge, centred, and a small arrow pointing the heading is drawn over the
+     * margin, so the arrow is never clipped. Inputs remain caller-owned.
+     */
+    static NativeImage apply(IconStyle style, NativeImage source, NativeImage head, Entity entity, int arrow) {
+        int n=source.getWidth();
+        if(arrow<0) return styled(style,source,head,entity,n);
+        int m=Math.max(4,(int)Math.round(n*ARROW_SHRINK)); if(((n-m)&1)!=0) m--;
+        int off=(n-m)/2;
+        NativeImage out=new NativeImage(n,n,true);
+        try(NativeImage inner=styled(style,source,head,entity,m)) {
+            for(int y=0;y<m;y++) for(int x=0;x<m;x++) out.setPixelRGBA(x+off,y+off,inner.getPixelRGBA(x,y));
+        }
+        // Arrow ring: the icon's centre, or the head circle's centre on the pin.
+        double cx=n/2.0, cy=n/2.0, ring=n/2.0-1.6;
+        double len=n*.21, half=n*.145;
+        if(style==IconStyle.HEAD_PIN) { cy=off+m*.40+.5; ring=m*.40+len*.4; }
+        drawArrow(out,cx,cy,ring,len,half,arrow);
+        return out;
+    }
+
+    /**
+     * A small arrow (light fill, dark 1 px edge) whose tip sits {@code ring} from (cx,cy) in the heading's
+     * direction. Bucket 0 points down the icon (towards the viewer), each step turns 45 degrees clockwise
+     * on screen: left, up, right. Shifted inward when any part would leave the image.
+     */
+    private static void drawArrow(NativeImage out,double cx,double cy,double ring,double len,double half,int bucket) {
+        int n=out.getWidth();
+        double a=Math.toRadians(bucket*45.0), dx=-Math.sin(a), dy=Math.cos(a), px=-dy, py=dx;
+        double[][] v={ // tip, back corner, notch, back corner
+                {cx+dx*ring, cy+dy*ring},
+                {cx+dx*(ring-len)+px*half, cy+dy*(ring-len)+py*half},
+                {cx+dx*(ring-len*.62), cy+dy*(ring-len*.62)},
+                {cx+dx*(ring-len)-px*half, cy+dy*(ring-len)-py*half}};
+        double shiftX=0,shiftY=0,pad=1.6;
+        for(double[] p:v) {
+            if(p[0]<pad) shiftX=Math.max(shiftX,pad-p[0]); else if(p[0]>n-pad) shiftX=Math.min(shiftX,n-pad-p[0]);
+            if(p[1]<pad) shiftY=Math.max(shiftY,pad-p[1]); else if(p[1]>n-pad) shiftY=Math.min(shiftY,n-pad-p[1]);
+        }
+        for(double[] p:v) {p[0]+=shiftX;p[1]+=shiftY;}
+        float[] cover=new float[n*n];
+        for(int y=0;y<n;y++) for(int x=0;x<n;x++) {
+            int hit=0;
+            for(int sy=0;sy<4;sy++) for(int sx=0;sx<4;sx++) if(inside(v,x+(sx+.5)/4,y+(sy+.5)/4)) hit++;
+            cover[y*n+x]=hit/16f;
+        }
+        for(int y=0;y<n;y++) for(int x=0;x<n;x++) {
+            float edge=0;
+            for(int oy=-1;oy<=1;oy++) for(int ox=-1;ox<=1;ox++) {
+                int xx=x+ox,yy=y+oy;
+                if(xx>=0&&yy>=0&&xx<n&&yy<n) edge=Math.max(edge,cover[yy*n+xx]);
+            }
+            if(edge<=0) continue;
+            int px0=out.getPixelRGBA(x,y);
+            px0=over(((int)(edge*255)<<24)|(ARROW_EDGE&0xffffff),px0);
+            float c=cover[y*n+x];
+            if(c>0) px0=over(((int)(c*255)<<24)|(ARROW_FILL&0xffffff),px0);
+            out.setPixelRGBA(x,y,px0);
+        }
+    }
+
+    /** Even-odd point-in-polygon. */
+    private static boolean inside(double[][] v,double x,double y) {
+        boolean in=false;
+        for(int i=0,j=v.length-1;i<v.length;j=i++) {
+            if((v[i][1]>y)!=(v[j][1]>y) && x<(v[j][0]-v[i][0])*(y-v[i][1])/(v[j][1]-v[i][1])+v[i][0]) in=!in;
+        }
+        return in;
+    }
+
+    /** The style on an {@code n}-pixel square canvas, made from {@code source} (any size). */
+    private static NativeImage styled(IconStyle style, NativeImage source, NativeImage head, Entity entity, int n) {
+        int col=category(entity);
         NativeImage out=new NativeImage(n,n,true);
         if (style==IconStyle.BADGE || style==IconStyle.HEAD_PIN) {
             boolean pin=style==IconStyle.HEAD_PIN;

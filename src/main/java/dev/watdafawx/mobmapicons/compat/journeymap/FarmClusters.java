@@ -43,7 +43,7 @@ final class FarmClusters {
     }
 
     private static final long REBUILD_NANOS = 250_000_000L;
-    private static final Pattern VARIANT_SUFFIX = Pattern.compile("_[0-9]+_g[0-9]+[.]png$");
+    private static final Pattern VARIANT_SUFFIX = Pattern.compile("_[0-9]+(_a[0-9]+)?_g[0-9]+[.]png$");
 
     private Map<Integer, Verdict> verdicts = Map.of();
     private long builtAt;
@@ -223,7 +223,7 @@ final class FarmClusters {
 
     /** The icon API's variant for this mob: its resource path minus the heading and generation suffix. */
     private static String variantOf(Mob m) {
-        var res = MobIconApi.getResourceIcon(m, MobIconApi.yawBucket(m.yBodyRot));
+        var res = MobIconApi.getResourceIcon(m, MobIconApi.yawBucket(m.yBodyRot), ClientConfig.iconStyle(), false);
         return res == null ? "?" : VARIANT_SUFFIX.matcher(res.getPath()).replaceFirst("");
     }
 

@@ -32,7 +32,7 @@ final class StyleContactSheet {
                 try(NativeImage full=MobIconRenderer.render(e,IconMode.FULL_BODY,64,0,null);
                     NativeImage head=MobIconRenderer.render(e,IconMode.HEAD,64,0,null);
                     NativeImage top=MobIconRenderer.render(e,IconMode.FULL_BODY,64,0,null,true)) {
-                    for(IconStyle style:IconStyle.values()) grid.add(full==null?new NativeImage(64,64,true):IconStyles.apply(style,style==IconStyle.TOP_DOWN&&top!=null?top:full,head,e));
+                    for(IconStyle style:IconStyle.values()) grid.add(full==null?new NativeImage(64,64,true):IconStyles.apply(style,style==IconStyle.TOP_DOWN&&top!=null?top:full,head,e,-1));
                 }
             }
             Files.createDirectories(dir);

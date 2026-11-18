@@ -239,7 +239,7 @@ final class MobIconSelfTest {
     }
 
     private static void requestVariants() {
-        FOUND.values().forEach(MobIconApi::getIcon);
+        FOUND.values().forEach(e -> MobIconApi.getIcon(e, 0));
         Entity cow = cow();
         if (cow != null) {
             for (int b = 0; b < MobIconApi.YAW_BUCKETS; b++) MobIconApi.getIcon(cow, b);

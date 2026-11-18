@@ -36,7 +36,7 @@ public final class ClientConfig {
     }
 
     public static java.util.List<Object> iconSettings() {
-        return java.util.List.of(iconStyle(), iconMode(), iconSize(), rotateWithHeading(), tintByHostility(),
+        return java.util.List.of(iconStyle(), iconMode(), iconSize(), rotateWithHeading(), headingArrow(), tintByHostility(),
                 farmMode(), players(), maxIcons(), clusterRadius(), clusterMinCount(), xaeroScale(), blacklist());
     }
 
@@ -51,9 +51,16 @@ public final class ClientConfig {
 
     public static final ModConfigSpec.BooleanValue ROTATE_WITH_HEADING = BUILDER
             .comment("Turn each mob's icon to face the way the mob is heading on the map (8 directions,",
-                    "rendered on demand). Off: every icon faces the viewer. Map adapters read this.")
+                    "rendered on demand). Off (default): every icon faces the viewer. Map adapters read this.")
             .translation("mob_map_icons.configuration.rotateWithHeading")
-            .define("rotateWithHeading", true);
+            .define("rotateWithHeading", false);
+
+    public static final ModConfigSpec.BooleanValue HEADING_ARROW = BUILDER
+            .comment("Small arrow on each icon pointing the way the mob faces (8 directions, drawn into the icon).",
+                    "Independent of rotateWithHeading. FTB Chunks and JourneyMap only: Xaero draws one static icon per",
+                    "mob type. JourneyMap skips it while JourneyMap's own mob heading arrow is on.")
+            .translation("mob_map_icons.configuration.headingArrow")
+            .define("headingArrow", true);
 
     public static final ModConfigSpec.BooleanValue FTB_CHUNKS_ENABLED = BUILDER
             .comment("Draw mob icons on FTB Chunks maps.")
@@ -160,8 +167,21 @@ public final class ClientConfig {
         try {
             return ROTATE_WITH_HEADING.get();
         } catch (IllegalStateException configNotLoadedYet) {
+            return false;
+        }
+    }
+
+    public static boolean headingArrow() {
+        try {
+            return HEADING_ARROW.get();
+        } catch (IllegalStateException configNotLoadedYet) {
             return true;
         }
+    }
+
+    /** Whether adapters should compute a heading bucket at all: the icon turns, or it carries an arrow. */
+    public static boolean usesHeading() {
+        return rotateWithHeading() || headingArrow();
     }
 
     public static boolean ftbChunksEnabled() {

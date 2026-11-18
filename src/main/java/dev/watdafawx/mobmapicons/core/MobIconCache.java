@@ -81,10 +81,12 @@ public final class MobIconCache {
 
     /**
      * What an icon is of. {@code variant == null} is the type's default look (a fresh instance),
-     * which the {@link EntityType} lookups use.
+     * which the {@link EntityType} lookups use. {@code bucket} is the model's rotation (always 0 with
+     * rotateWithHeading off); {@code arrow} is the heading drawn as an arrow, or -1 for none.
      */
-    record Key(EntityType<?> type, @Nullable IconVariant variant, int bucket, IconStyle style) {
-        Key(EntityType<?> type, @Nullable IconVariant variant, int bucket) { this(type, variant, bucket, ClientConfig.iconStyle()); }
+    record Key(EntityType<?> type, @Nullable IconVariant variant, int bucket, IconStyle style, int arrow) {
+        Key(EntityType<?> type, @Nullable IconVariant variant, int bucket) { this(type, variant, bucket, ClientConfig.iconStyle(), -1); }
+        Key(EntityType<?> type, @Nullable IconVariant variant, int bucket, IconStyle style) { this(type, variant, bucket, style, -1); }
         ResourceLocation typeId() {
             return BuiltInRegistries.ENTITY_TYPE.getKey(type);
         }
@@ -92,14 +94,24 @@ public final class MobIconCache {
         /** File name stem for dumps, e.g. {@code sheep__sheep_red_b0}; the type default is just {@code sheep}. */
         String fileStem() {
             String base = typeId().getPath();
-            return variant == null && bucket == 0 ? base
-                    : base + "__" + (variant == null ? "default" : variant.label()) + "_b" + bucket;
+            return variant == null && bucket == 0 && arrow < 0 ? base
+                    : base + "__" + (variant == null ? "default" : variant.label()) + "_b" + bucket + (arrow < 0 ? "" : "_a" + arrow);
         }
     }
 
     private record Request(Key key, @Nullable Entity source) {}
 
     private record FrameKey(EntityType<?> type, @Nullable IconVariant variant) {}
+
+    /** What a style's pixels are made from, before the style and the arrow: the model render(s). */
+    private record BaseKey(EntityType<?> type, @Nullable IconVariant variant, int bucket, IconStyle style) {}
+
+    private record Base(NativeImage raw, @Nullable NativeImage head) {
+        void close() {
+            raw.close();
+            if (head != null) head.close();
+        }
+    }
 
     private static final Object LOCK = new Object();
     /** Access-ordered: the eldest entry is the least recently looked up. Guarded by {@link #LOCK}. */
@@ -124,6 +136,21 @@ public final class MobIconCache {
         @Override
         protected boolean removeEldestEntry(Map.Entry<FrameKey, MobIconRenderer.Frame> eldest) {
             return size() > MAX_FRAMES;
+        }
+    };
+
+    /**
+     * Model renders kept so the eight arrow directions of one look cost one render, not eight (the arrow
+     * is drawn on a copy of the styled base). Only used while the model itself does not turn. 4 KB each
+     * at 16 px icons. Render thread only.
+     */
+    private static final int MAX_BASES = 128;
+    private static final LinkedHashMap<BaseKey, Base> BASES = new LinkedHashMap<>(64, 0.75F, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<BaseKey, Base> eldest) {
+            if (size() <= MAX_BASES) return false;
+            eldest.getValue().close();
+            return true;
         }
     };
 
@@ -172,32 +199,52 @@ public final class MobIconCache {
         return lookup(new Key(type, null, 0), null).resource();
     }
 
-    /** Texture id of the best icon for this entity and bucket (exact or stand-in), or {@code null}. Queues a miss. */
+    /**
+     * Texture id of the best icon for this entity and heading bucket (exact or stand-in), or {@code null}.
+     * Queues a miss. The bucket turns the model with rotateWithHeading and picks the arrow with headingArrow.
+     */
     @Nullable
     public static ResourceLocation getIcon(Entity entity, int bucket) {
-        return best(entity, bucket, ClientConfig.iconStyle(), true).texture();
+        return best(entity, bucket, ClientConfig.iconStyle(), true, true).texture();
+    }
+
+    /** The icon facing the viewer with no heading arrow (for callers that do not know the heading). */
+    @Nullable
+    public static ResourceLocation getIcon(Entity entity) {
+        return best(entity, 0, ClientConfig.iconStyle(), false, true).texture();
     }
 
     /** PNG of what {@link #getIcon(Entity, int)} would return. Does not queue. */
     public static byte @Nullable [] getPng(Entity entity, int bucket) {
-        return best(entity, bucket, ClientConfig.iconStyle(), false).png();
+        return best(entity, bucket, ClientConfig.iconStyle(), true, false).png();
     }
 
     /** Like {@link #getPng(Entity, int)}, but in {@code style} instead of the configured one. */
     public static byte @Nullable [] getPng(Entity entity, int bucket, IconStyle style) {
-        return best(entity, bucket, style, false).png();
+        return best(entity, bucket, style, true, false).png();
+    }
+
+    /** Like {@link #getPng(Entity, int, IconStyle)}; {@code arrow == false} leaves out the heading arrow. */
+    public static byte @Nullable [] getPng(Entity entity, int bucket, IconStyle style, boolean arrow) {
+        return best(entity, bucket, style, arrow, false).png();
     }
 
     /** Resource location of what {@link #getIcon(Entity, int)} would return. Queues a miss. */
     @Nullable
     public static ResourceLocation getResourceIcon(Entity entity, int bucket) {
-        return best(entity, bucket, ClientConfig.iconStyle(), true).resource();
+        return best(entity, bucket, ClientConfig.iconStyle(), true, true).resource();
     }
 
     /** Like {@link #getResourceIcon(Entity, int)}, but in {@code style} instead of the configured one. */
     @Nullable
     public static ResourceLocation getResourceIcon(Entity entity, int bucket, IconStyle style) {
-        return best(entity, bucket, style, true).resource();
+        return best(entity, bucket, style, true, true).resource();
+    }
+
+    /** Like {@link #getResourceIcon(Entity, int, IconStyle)}; {@code arrow == false} leaves out the heading arrow. */
+    @Nullable
+    public static ResourceLocation getResourceIcon(Entity entity, int bucket, IconStyle style, boolean arrow) {
+        return best(entity, bucket, style, arrow, true).resource();
     }
 
     /** {@code true} when the exact icon for this entity and bucket is ready (no stand-in). Does not queue. */
@@ -227,29 +274,40 @@ public final class MobIconCache {
 
     @Nullable
     private static Key keyOf(Entity entity, int bucket) {
-        return keyOf(entity, bucket, ClientConfig.iconStyle());
+        return keyOf(entity, bucket, ClientConfig.iconStyle(), true);
     }
 
     @Nullable
-    private static Key keyOf(Entity entity, int bucket, IconStyle style) {
+    private static Key keyOf(Entity entity, int bucket, IconStyle style, boolean arrow) {
         EntityType<?> type = entity.getType();
         if (isBlacklisted(type)) return null;
-        return new Key(type, IconVariant.of(entity), Math.floorMod(bucket, MobIconApi.YAW_BUCKETS), style);
+        return headingKey(type, IconVariant.of(entity), bucket, style, arrow);
+    }
+
+    /**
+     * The key for a heading bucket: the model turns only with rotateWithHeading (else bucket 0, so one
+     * render serves every heading) and the arrow exists only with headingArrow and when the caller
+     * wants it ({@code arrow}; lookups without a heading do not).
+     */
+    private static Key headingKey(EntityType<?> type, @Nullable IconVariant variant, int bucket, IconStyle style, boolean arrow) {
+        int b = Math.floorMod(bucket, MobIconApi.YAW_BUCKETS);
+        return new Key(type, variant, ClientConfig.rotateWithHeading() ? b : 0, style,
+                arrow && ClientConfig.headingArrow() ? b : -1);
     }
 
     /**
      * The exact entry if ready, otherwise the nearest ready bucket of the same variant, otherwise the
      * ready type default; {@link Entry#PENDING}-like (all null) when there is none.
      */
-    private static Entry best(Entity entity, int bucket, IconStyle style, boolean queue) {
-        Key key = keyOf(entity, bucket, style);
+    private static Entry best(Entity entity, int bucket, IconStyle style, boolean arrow, boolean queue) {
+        Key key = keyOf(entity, bucket, style, arrow);
         if (key == null) return Entry.FAILED;
         Entry exact = queue ? lookup(key, entity) : peek(key);
         if (exact.ready()) return exact;
         synchronized (LOCK) {
             for (int d = 1; d <= MobIconApi.YAW_BUCKETS / 2; d++) {
                 for (int sign = -1; sign <= 1; sign += 2) {
-                    Entry e = ENTRIES.get(new Key(key.type(), key.variant(), Math.floorMod(key.bucket() + sign * d, MobIconApi.YAW_BUCKETS), key.style()));
+                    Entry e = ENTRIES.get(headingKey(key.type(), key.variant(), bucket + sign * d, key.style(), arrow));
                     if (e != null && e.ready()) return e;
                 }
             }
@@ -263,7 +321,7 @@ public final class MobIconCache {
     private static Entry fallback(Key key) {
         for (var e : PREVIOUS.entrySet()) {
             Key k=e.getKey();
-            if(k.type()==key.type() && java.util.Objects.equals(k.variant(),key.variant()) && k.bucket()==key.bucket() && k.style()==key.style()) return e.getValue();
+            if(k.equals(key)) return e.getValue();
         }
         return Entry.PENDING;
     }
@@ -346,7 +404,7 @@ public final class MobIconCache {
                 if(value.ready()) {
                     PREVIOUS.entrySet().removeIf(e -> {
                         Key k=e.getKey();
-                        boolean same=k.type()==key.type() && java.util.Objects.equals(k.variant(),key.variant()) && k.bucket()==key.bucket() && k.style()==key.style();
+                        boolean same=k.equals(key);
                         if(same) old.add(e.getValue());
                         return same;
                     });
@@ -359,6 +417,8 @@ public final class MobIconCache {
         old.forEach(MobIconCache::release);
         RESOURCES.entrySet().removeIf(e -> !PREVIOUS.containsKey(e.getValue()));
         FRAMES.clear();
+        BASES.values().forEach(Base::close);
+        BASES.clear();
         generation++;
         // Pending callbacks get a failure rather than hanging forever.
         CALLBACKS.values().forEach(list -> list.forEach(cb -> cb.accept(Entry.FAILED)));
@@ -434,8 +494,8 @@ public final class MobIconCache {
         boolean rotate = ClientConfig.rotateWithHeading();
         if (!ClientConfig.iconSettings().equals(renderedSettings)) {
             if (renderedMode != null) {
-                MobMapIcons.LOG.info("Icon config changed ({} {}px rotate={} -> {} {}px rotate={}); re-rendering icons",
-                        renderedMode, renderedSize, renderedRotate, mode, size, rotate);
+                MobMapIcons.LOG.info("Icon config changed ({} {}px rotate={} -> {} {}px rotate={}, arrow={}); re-rendering icons",
+                        renderedMode, renderedSize, renderedRotate, mode, size, rotate, ClientConfig.headingArrow());
                 clearAll();
             }
             renderedSettings = ClientConfig.iconSettings();
@@ -478,34 +538,46 @@ public final class MobIconCache {
         }
 
         NativeImage image = null;
+        NativeImage raw = null, head = null;
+        boolean shared = false; // raw/head live in BASES, which owns them
         try {
-            MobIconRenderer.Frame frame = null;
-            if (rotate && (mode == IconMode.FULL_BODY || !MobIconRenderer.headCropApplies(entity))) {
-                FrameKey fk = new FrameKey(key.type(), key.variant());
-                frame = FRAMES.get(fk);
-                if (frame == null) {
-                    frame = MobIconRenderer.measureFrame(entity, outSize);
-                    if (frame != null) FRAMES.put(fk, frame);
-                    MobMapIcons.LOG.debug("Heading frame for {} {}: {} (bb {}x{})", typeId,
-                            key.variant() == null ? "default" : key.variant().label(), frame,
-                            entity.getBbWidth(), entity.getBbHeight());
+            // The eight arrow directions of one look share one model render while the model itself does not turn.
+            BaseKey baseKey = new BaseKey(key.type(), key.variant(), key.bucket(), key.style());
+            Base base = key.arrow() >= 0 && !rotate ? BASES.get(baseKey) : null;
+            if (base != null) {
+                raw = base.raw();
+                head = base.head();
+                shared = true;
+            } else {
+                MobIconRenderer.Frame frame = null;
+                if (rotate && (mode == IconMode.FULL_BODY || !MobIconRenderer.headCropApplies(entity))) {
+                    FrameKey fk = new FrameKey(key.type(), key.variant());
+                    frame = FRAMES.get(fk);
+                    if (frame == null) {
+                        frame = MobIconRenderer.measureFrame(entity, outSize);
+                        if (frame != null) FRAMES.put(fk, frame);
+                        MobMapIcons.LOG.debug("Heading frame for {} {}: {} (bb {}x{})", typeId,
+                                key.variant() == null ? "default" : key.variant().label(), frame,
+                                entity.getBbWidth(), entity.getBbHeight());
+                    }
+                }
+                raw = MobIconRenderer.render(entity, key.style()==IconStyle.CHIBI || key.style()==IconStyle.TOP_DOWN ? IconMode.FULL_BODY : mode, outSize, key.bucket(), key.style()==IconStyle.TOP_DOWN ? null : frame, key.style()==IconStyle.TOP_DOWN);
+                if (raw == null) {
+                    MobMapIcons.LOG.debug("No icon for {}: it draws nothing", typeId);
+                    return Entry.FAILED;
+                }
+                if (key.style().extraRender()) head = MobIconRenderer.render(entity, IconMode.HEAD, outSize, key.bucket(), null);
+                if (key.arrow() >= 0 && !rotate) {
+                    BASES.put(baseKey, new Base(raw, head));
+                    shared = true;
                 }
             }
-            image = MobIconRenderer.render(entity, key.style()==IconStyle.CHIBI || key.style()==IconStyle.TOP_DOWN ? IconMode.FULL_BODY : mode, outSize, key.bucket(), key.style()==IconStyle.TOP_DOWN ? null : frame, key.style()==IconStyle.TOP_DOWN);
-            if (image == null) {
-                MobMapIcons.LOG.debug("No icon for {}: it draws nothing", typeId);
-                return Entry.FAILED;
-            }
-            NativeImage rendered = image;
-            image = null;
-            try (NativeImage raw = rendered;
-                 NativeImage head = key.style().extraRender() ? MobIconRenderer.render(entity, IconMode.HEAD, outSize, key.bucket(), null) : null) {
-                image = IconStyles.apply(key.style(), raw, head, entity);
-            }
+            image = IconStyles.apply(key.style(), raw, head, entity, key.arrow());
             byte[] png = image.asByteArray();
             ResourceLocation id = ResourceLocation.fromNamespaceAndPath(MobMapIcons.MODID, "icons/"
                     + typeId.getNamespace() + "/" + typeId.getPath() + "/"
-                    + (key.variant() == null ? "default" : key.variant().hash()) + "_" + key.bucket() + "_" + (textureSerial++));
+                    + (key.variant() == null ? "default" : key.variant().hash()) + "_" + key.bucket()
+                    + (key.arrow() < 0 ? "" : "a" + key.arrow()) + "_" + (textureSerial++));
             DynamicTexture texture = new DynamicTexture(image); // takes ownership of image
             image = null;
             mc.getTextureManager().register(id, texture);
@@ -515,6 +587,10 @@ public final class MobIconCache {
             return Entry.FAILED;
         } finally {
             if (image != null) image.close();
+            if (!shared) {
+                if (raw != null) raw.close();
+                if (head != null) head.close();
+            }
             IconVariant.discard(entity);
         }
     }
@@ -524,8 +600,9 @@ public final class MobIconCache {
         ResourceLocation typeId = key.typeId();
         String path = RESOURCE_PREFIX + typeId.getNamespace() + "/" + typeId.getPath();
         path += "/" + key.style().name().toLowerCase(java.util.Locale.ROOT) + "_g" + generation;
-        if (key.variant() != null || key.bucket() != 0) {
-            path += "/" + (key.variant() == null ? "default" : key.variant().hash()) + "_" + key.bucket() + "_g" + generation;
+        if (key.variant() != null || key.bucket() != 0 || key.arrow() >= 0) {
+            path += "/" + (key.variant() == null ? "default" : key.variant().hash()) + "_" + key.bucket()
+                    + (key.arrow() < 0 ? "" : "_a" + key.arrow()) + "_g" + generation;
         }
         return ResourceLocation.fromNamespaceAndPath(MobMapIcons.MODID, path + ".png");
     }

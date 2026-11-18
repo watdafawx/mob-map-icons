@@ -133,7 +133,8 @@ Open **Mods > Mob Map Icons > Config** in game, or edit `config/mob_map_icons-cl
 | `iconStyle` | `OUTLINE` | PLAIN, OUTLINE, SILHOUETTE, BADGE, RETRO, TOP_DOWN, CHIBI, PAPER_INK, SHADOW, HEAD_PIN |
 | `iconMode` | `FULL_BODY` | `FULL_BODY` or `HEAD` (head and shoulders). CHIBI, HEAD_PIN and TOP_DOWN choose their own view |
 | `iconSize` | `16` | Icon edge length in pixels (8 to 64) |
-| `rotateWithHeading` | `true` | Turn each icon to face the way the mob is heading (8 directions) |
+| `rotateWithHeading` | `false` | Turn each icon to face the way the mob is heading (8 directions). Off: every icon faces you |
+| `headingArrow` | `true` | Small arrow on each icon pointing the way the mob faces (FTB Chunks, JourneyMap). Works with or without `rotateWithHeading` |
 | `ftbChunks`, `xaero`, `journeymap` | `true` | Turn an adapter on or off |
 | `farmMode` | `true` | Merge crowds of the same mob into one icon (FTB Chunks: count badge; JourneyMap: label) |
 | `clusterRadius`, `clusterMinCount` | `12`, `3` | Merge distance in screen pixels, and the smallest group that merges |
@@ -174,6 +175,7 @@ Client commands: `/mobmapicons options` (quick panel), `/mobmapicons style <name
 - Head mode finds the model's head part. Flying and wide mobs (bats, phantoms, ghasts, the dragon) get the
   full body instead, and a head facing away shows the back of the body.
 - Armour and held items are not drawn. Slime sizes get separate icons that look the same.
+- **Heading arrow:** Xaero draws one fixed icon per mob type, so it never shows the arrow. JourneyMap draws its own heading arrow when its "show mob heading" setting is on, and then ours is left out.
 - With `rotateWithHeading` on, long-tailed mobs (cats) look smaller, because every heading shares one frame.
 - Variant detection covers the vanilla renderer layers. A mod that draws its own variants in a custom
   render event may be missed.

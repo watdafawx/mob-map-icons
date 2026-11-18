@@ -51,7 +51,11 @@ import org.jetbrains.annotations.Nullable;
  * separately from their head; {@code LivingEntity.yBodyRot} is usually the better heading. Every
  * bucket keeps the same fixed three-quarter camera (the model turned 30 degrees towards screen-left
  * and seen from 12 degrees above), and with {@link #rotateWithHeading()} on, all buckets of one mob
- * share the same scale so the icon does not grow and shrink as it turns.
+ * share the same scale so the icon does not grow and shrink as it turns. With {@link #headingArrow()}
+ * on (the default) the bucket also picks a small arrow drawn into the icon: bucket 0 points down, each
+ * step turns 45 degrees clockwise. The model turns only with rotateWithHeading (off by default), so with
+ * only the arrow on, the eight buckets share one model render. Per-type and bucket-less lookups carry no
+ * arrow.
  *
  * <h2>Stand-ins</h2>
  * While the exact icon for an entity/bucket is still rendering, the entity lookups return the closest
@@ -116,11 +120,12 @@ public final class MobIconApi {
 
     /**
      * The icon for this entity's real look (colour, variant, baby, size), facing the viewer
-     * (bucket 0). Same as {@link #getIcon(Entity, int) getIcon(entity, 0)}.
+     * (bucket 0) and without a heading arrow: the heading is unknown here. Same as
+     * {@link #getIcon(Entity, int) getIcon(entity, 0)} with {@link #headingArrow()} off.
      */
     @Nullable
     public static ResourceLocation getIcon(Entity entity) {
-        return MobIconCache.getIcon(entity, 0);
+        return MobIconCache.getIcon(entity);
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -130,6 +135,8 @@ public final class MobIconApi {
      * The icon for this entity's real look, facing heading bucket {@code yawBucket} (see the class
      * javadoc for the convention and the formula from {@code yRot}). Renders that bucket lazily on
      * first request; until then returns the closest ready stand-in, or {@code null} if there is none.
+     * The bucket turns the model when {@link #rotateWithHeading()} is on and, when {@link #headingArrow()}
+     * is on, selects the direction of the small arrow drawn into the icon (bucket 0 points down).
      *
      * @param entity    the entity being drawn; read only, never modified
      * @param yawBucket {@code 0..YAW_BUCKETS-1}; other values wrap around
@@ -169,6 +176,20 @@ public final class MobIconApi {
         return MobIconCache.getPng(entity, yawBucket, style);
     }
 
+    /**
+     * Like {@link #getPng(Entity, int, IconStyle)}; {@code arrow == false} asks for the icon without the
+     * heading arrow even when {@link #headingArrow()} is on (a map mod that draws its own arrow).
+     */
+    public static byte @Nullable [] getPng(Entity entity, int yawBucket, IconStyle style, boolean arrow) {
+        return MobIconCache.getPng(entity, yawBucket, style, arrow);
+    }
+
+    /** Like {@link #getResourceIcon(Entity, int, IconStyle)}, with the arrow left out when {@code arrow} is false. */
+    @Nullable
+    public static ResourceLocation getResourceIcon(Entity entity, int yawBucket, IconStyle style, boolean arrow) {
+        return MobIconCache.getResourceIcon(entity, yawBucket, style, arrow);
+    }
+
     /** Like {@link #getResourceIcon(Entity, int)}, in {@code style} instead of the configured icon style. */
     @Nullable
     public static ResourceLocation getResourceIcon(Entity entity, int yawBucket, IconStyle style) {
@@ -187,11 +208,24 @@ public final class MobIconApi {
     }
 
     /**
-     * Whether adapters should turn icons to the mob's heading (config {@code rotateWithHeading}).
-     * When {@code false}, adapters should always ask for bucket 0.
+     * Whether icons turn to the mob's heading (config {@code rotateWithHeading}, off by default). Adapters
+     * should ask {@link #usesHeading()} to decide whether to compute a bucket.
      */
     public static boolean rotateWithHeading() {
         return ClientConfig.rotateWithHeading();
+    }
+
+    /** Whether icons carry a small arrow pointing the mob's heading (config {@code headingArrow}, on by default). */
+    public static boolean headingArrow() {
+        return ClientConfig.headingArrow();
+    }
+
+    /**
+     * {@code true} when a heading bucket changes the icon ({@link #rotateWithHeading()} or
+     * {@link #headingArrow()}): adapters compute one only then, otherwise they ask for bucket 0.
+     */
+    public static boolean usesHeading() {
+        return ClientConfig.usesHeading();
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -199,7 +233,7 @@ public final class MobIconApi {
 
     /**
      * Throws every icon away; they are rendered again on demand. Runs on resource reload and on an
-     * iconMode / iconSize / rotateWithHeading change by itself; adapters that cache icons should
+     * iconMode / iconSize / rotateWithHeading / headingArrow change by itself; adapters that cache icons should
      * re-query afterwards.
      */
     public static void invalidateAll() {

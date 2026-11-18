@@ -6,7 +6,7 @@ with the `runScene` dev run (build.gradle): a creative superflat world at noon, 
 19 NoAI mobs spread around the player (zombie, skeleton, creeper, enderman, pig, cow, baby cow,
 white/red/blue sheep, chicken, wolf, tabby + black cat, villager, iron golem, bat, slime, axolotl),
 several turned to different yaws. Default mod config (FULL_BODY, OUTLINE, iconSize 16, tint off,
-rotateWithHeading, farmMode on, maxIcons 150) unless a file below says otherwise. Game window
+rotateWithHeading on (the default was on then; it is off now, with headingArrow on), farmMode on, maxIcons 150) unless a file below says otherwise. Game window
 1920x1080, GUI scale 2. Every image is a crop of the real frame, enlarged 2x with nearest-neighbour
 so map pixels stay sharp; the side-by-side images add a label strip. One map mod per run.
 
@@ -130,3 +130,14 @@ head-mode.png             FTB Chunks large map, OUTLINE: iconMode FULL_BODY (lef
 options-overlay-head.png  Quick options overlay: one click on the Mode button (full_body -> head) and the map behind
                           it switches to head icons at once. Crop of the real frame, 1.5x.
 (HEAD with PLAIN, BADGE and RETRO was checked on the same view, not saved: no cut-off heads.)
+
+Heading arrow (2026-11-18)
+--------------------------
+Taken on rig with `runScene` (FTB Chunks large map, rotateWithHeading=false, iconStyle=OUTLINE, farmMode=false), 2x
+nearest-neighbour crop of the real frame, labelled with Pillow, palette-quantized. Scene steps `cfg arrow false|true`;
+mobs summoned with explicit Rotation, bottom three rows are one mob each at the 8 yaws.
+
+heading-arrow.png         before = headingArrow off (plain icons), after = on. Bucket 0 points down, then clockwise.
+                          The mob shrinks to 75% to make room; no arrow is clipped.
+(Also checked, not saved: BADGE, HEAD_PIN, HEAD mode and rotate+arrow on FTB; JourneyMap minimap with showMobHeading
+off shows our arrow, small and partly under JM's round marker; with it on we draw none.)

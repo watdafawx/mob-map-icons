@@ -47,12 +47,13 @@ final class IconDraw {
     }
 
     /**
-     * Heading bucket for this entity on this map: 0 unless {@code rotateWithHeading}. North-up maps (the
+     * Heading bucket for this entity on this map: 0 unless the icon uses a heading (it turns, or it has a
+     * heading arrow, see {@link MobIconApi#usesHeading()}). North-up maps (the
      * large map, a locked minimap) use the body yaw as is; a rotating minimap has the player's look
      * direction at the top, so the yaw is taken relative to the player.
      */
     static int bucket(Entity entity, MapType mapType) {
-        if (!MobIconApi.rotateWithHeading()) {
+        if (!MobIconApi.usesHeading()) {
             return 0;
         }
         float yaw = entity instanceof LivingEntity living ? living.yBodyRot : entity.getYRot();
