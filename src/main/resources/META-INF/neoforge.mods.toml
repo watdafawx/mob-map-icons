@@ -7,13 +7,13 @@ issueTrackerURL = "https://github.com/watdafawx/mob-map-icons/issues"
 modId = "${mod_id}"
 version = "${mod_version}"
 displayName = "${mod_name}"
+logoFile = "logo.png"
 authors = "${mod_authors}"
 description = '''
-Draws real icons for mobs on map mods: instead of a plain dot, every entity gets either its full body
-or just its head, rendered from its own model.
+Real mob models on your map. Replaces the little heads and red dots on FTB Chunks, Xaero's Minimap,
+Xaero's World Map and JourneyMap with icons rendered from each mob's own model: full body or just the head.
 
-Client-side only. FTB Chunks, Xaero's Minimap, Xaero's World Map and JourneyMap are all optional -
-install any subset and the rest of the mod simply stays dormant.
+Client-side only. Every map mod is optional - install any subset and the rest stays dormant.
 '''
 
 # --- Dependencies --------------------------------------------------------------------------------
