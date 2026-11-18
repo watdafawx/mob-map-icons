@@ -42,16 +42,22 @@ final class OverrideIcon implements MapIcon {
 
     private final MapIcon original;
     private final Entity entity;
-    private final ResourceLocation texture;
-
-    OverrideIcon(MapIcon original, Entity entity, ResourceLocation texture) {
+    OverrideIcon(MapIcon original, Entity entity) {
         this.original = original;
         this.entity = entity;
-        this.texture = texture;
     }
 
     @Override
     public void draw(MapType mapType, GuiGraphics graphics, int x, int y, int w, int h, boolean outsideVisibleArea, int iconAlpha) {
+        // Look the texture up again on every draw: FTB keeps this icon for up to 500 ms (minimap) or until
+        // the large map rebuilds, and a resource reload or icon config change frees the texture we were
+        // built with. Binding a freed id makes the texture manager try to load it from disk (a WARN per
+        // mob and a missing-texture frame), so fall back to FTB's own icon until ours is rendered again.
+        ResourceLocation texture = MobIconApi.getIcon(entity.getType());
+        if (texture == null) {
+            original.draw(mapType, graphics, x, y, w, h, outsideVisibleArea, iconAlpha);
+            return;
+        }
         float size = MobIconApi.iconSize();
         int r = 255, g = 255, b = 255;
         if (ClientConfig.tintByHostility() && entity instanceof Enemy) {
