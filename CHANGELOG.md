@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.0
+
+- Players: other players are drawn from their own skin and model, full body and turning with their
+  heading, on FTB Chunks and JourneyMap. New config `players` (default on). The local player is never
+  touched; players never merge in farm mode; Xaero keeps its own heads.
+- JourneyMap draws players from a private face cache, so the adapter swaps icons in there by reflection
+  and restores the faces when `players` is off or the field is missing.
+- Dev scene: `players` / `cfgplayers` steps spawn fake remote players.
+
 ## 0.3.0
 
 - Ten live icon styles, default OUTLINE, applied to cached textures and PNGs.

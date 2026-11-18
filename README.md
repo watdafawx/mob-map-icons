@@ -25,6 +25,8 @@ them is optional: install any subset, and the adapters for the missing ones stay
   so it works for modded mobs.
 - **Farm mode.** Crowds of the same mob merge into one icon with a count (`x144`), so a mob farm is
   readable instead of a blob.
+- **Players too.** Other players are drawn from their own skin, full body, turning with their heading
+  (FTB Chunks and JourneyMap). You always keep the map mod's own marker.
 - **Live config.** Every setting applies without a restart.
 
 <p align="center">
@@ -55,6 +57,17 @@ JourneyMap has no count badge, so there the count is the label (`144 x Cow`) and
 <p align="center">
   <img src="docs/screenshots/journeymap-farm-off-vs-on.png" alt="JourneyMap farm mode off and on" width="800">
 </p>
+
+## Players
+
+<p align="center">
+  <img src="docs/screenshots/players-ftbchunks.png" alt="FTB Chunks: player faces on the left, skin icons on the right" width="800">
+</p>
+<p align="center">
+  <img src="docs/screenshots/players-journeymap.png" alt="JourneyMap: player faces on the left, skin icons on the right" width="560">
+</p>
+
+Turn it off with `players = false` to get the map mods' faces back. Xaero keeps its own player heads.
 
 ## Screenshots
 
@@ -104,6 +117,7 @@ Open **Mods > Mob Map Icons > Config** in game, or edit `config/mob_map_icons-cl
 | `ftbChunks`, `xaero`, `journeymap` | `true` | Turn an adapter on or off |
 | `farmMode` | `true` | Merge crowds of the same mob into one icon (FTB Chunks: count badge; JourneyMap: label) |
 | `clusterRadius`, `clusterMinCount` | `12`, `3` | Merge distance in screen pixels, and the smallest group that merges |
+| `players` | `true` | Draw other players as their skin's model (FTB Chunks, JourneyMap) |
 | `maxIcons` | `150` | Most mob icons per map, nearest first (0 = no limit) |
 | `xaeroScale` | `0.75` | Xaero only: how much of Xaero's icon box the icon fills (0.25 to 1.0). Lower it for smaller icons |
 | `tintByHostility` | `false` | Tint hostile mobs' icons red (FTB Chunks) |
@@ -131,6 +145,9 @@ Client commands: `/mobmapicons style <name>`, `/mobmapicons reload` (rebuild ico
 - **Xaero:** icons are per mob type (no baby, colour or heading variants), because Xaero's icon
   definitions are static per type. Every sheep is white there. Icons are larger than Xaero's own heads;
   lower `xaeroScale` (0.5 is about Xaero's size).
+- **Players:** a full-body skin icon is narrow, so it reads smaller than JourneyMap's or FTB's face. JourneyMap
+  players are swapped through its private face cache (tested on 6.0.9; if it changes, JourneyMap keeps its faces)
+  and keep JourneyMap's square outline box. Xaero is not supported.
 - **JourneyMap:** `iconSize` has no visible effect, there is no count badge, and farm-mode labels can
   overlap on a crowded minimap.
 - Head mode finds the model's head part. Flying and wide mobs (bats, phantoms, ghasts, the dragon) get the
