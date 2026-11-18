@@ -59,6 +59,7 @@ final class MobIconCommands {
                                 ctx.getSource().sendSuccess(() -> Component.literal("Icon style: " + style), false); return 1;
                             } catch (IllegalArgumentException e) { ctx.getSource().sendFailure(Component.literal("Unknown icon style")); return 0; }
                         })))
+                .then(Commands.literal("options").executes(ctx -> { QuickOptions.requestOpen(); return 1; }))
                 .then(Commands.literal("dump").executes(MobIconCommands::dump))
                 .then(Commands.literal("headings").executes(MobIconCommands::headings))
                 .then(Commands.literal("render")

@@ -34,6 +34,8 @@ public final class MobIconCore {
             if (MobIconRenderer.isRendering()) event.setCanRender(TriState.FALSE);
         });
 
+        QuickOptions.init(modBus);
+
         if (Boolean.getBoolean(MobIconSelfTest.PROPERTY)) MobIconSelfTest.enable();
         if (Boolean.getBoolean(MobIconScene.PROPERTY)) MobIconScene.enable();
     }
