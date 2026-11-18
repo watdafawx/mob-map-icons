@@ -93,8 +93,15 @@ dependencies {
     compileOnly "dev.architectury:architectury-neoforge:13.0.12"
 
     // === compat:xaero ===
+    // Nothing: the Xaero adapter is data-only (resource-pack JSON + sprites) and reaches Xaero's reload
+    // hooks by reflection, so it needs no Xaero jar at compile time.
 
     // === compat:journeymap ===
+    repositories.maven {
+        url 'https://maven.blamejared.com'
+        content { includeGroup 'info.journeymap' }
+    }
+    compileOnly 'info.journeymap:journeymap-api-neoforge:2.0.0-1.21.1'
 }
 
 tasks.withType(JavaCompile).configureEach {

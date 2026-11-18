@@ -64,6 +64,19 @@ public final class MobIconApi {
         MobIconCache.invalidateAll();
     }
 
+    /**
+     * ResourceManager-readable icon for JourneyMap and Xaero, unlike getIcon's GPU texture id.
+     * TODO(core): preserve this path contract when replacing the API stubs.
+     */
+    @Nullable
+    public static ResourceLocation getResourceIcon(EntityType<?> type) {
+        if (ClientConfig.isBlacklisted(net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(type))
+                || getIcon(type) == null || getPng(type) == null) return null;
+        var id = net.minecraft.core.registries.BuiltInRegistries.ENTITY_TYPE.getKey(type);
+        return ResourceLocation.fromNamespaceAndPath("mob_map_icons",
+                "textures/mob_map_icons/" + id.getNamespace() + "/" + id.getPath() + ".png");
+    }
+
     /** Edge length in pixels of every icon this mod hands out, after config. Textures are twice this. */
     public static int iconSize() {
         return ClientConfig.iconSize();
