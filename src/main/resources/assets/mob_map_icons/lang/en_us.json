@@ -18,6 +18,8 @@
   "mob_map_icons.configuration.tintByHostility.tooltip": "Apply an additional hostile-red tint in FTB Chunks.",
   "mob_map_icons.configuration.xaero.tooltip": "Enable Mob Map Icons in Xaero Minimap and World Map.",
   "mob_map_icons.configuration.journeymap.tooltip": "Enable Mob Map Icons in JourneyMap.",
+  "mob_map_icons.configuration.players": "Other players",
+  "mob_map_icons.configuration.players.tooltip": "Draw other players as their skin's model (FTB Chunks, JourneyMap). You are never touched.",
   "mob_map_icons.configuration.farmMode": "Farm mode",
   "mob_map_icons.configuration.farmMode.tooltip": "Merge nearby mobs of one kind. Named, leashed, tamed and boss mobs stay separate.",
   "mob_map_icons.configuration.maxIcons": "Max icons",

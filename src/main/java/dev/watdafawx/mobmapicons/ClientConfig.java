@@ -37,7 +37,7 @@ public final class ClientConfig {
 
     public static java.util.List<Object> iconSettings() {
         return java.util.List.of(iconStyle(), iconMode(), iconSize(), rotateWithHeading(), tintByHostility(),
-                farmMode(), maxIcons(), clusterRadius(), clusterMinCount(), xaeroScale(), blacklist());
+                farmMode(), players(), maxIcons(), clusterRadius(), clusterMinCount(), xaeroScale(), blacklist());
     }
 
     private static Object blacklist() {
@@ -81,6 +81,16 @@ public final class ClientConfig {
                     "(JourneyMap). Named, leashed, tamed and boss mobs are never merged.")
             .translation("mob_map_icons.configuration.farmMode")
             .define("farmMode", true);
+
+    public static final ModConfigSpec.BooleanValue PLAYERS = BUILDER
+            .comment("Draw other players as their skin's model instead of the map mod's face (FTB Chunks,",
+                    "JourneyMap). You are never touched; Xaero keeps its own player heads.")
+            .translation("mob_map_icons.configuration.players")
+            .define("players", true);
+
+    public static boolean players() {
+        try { return PLAYERS.get(); } catch (IllegalStateException notLoaded) { return true; }
+    }
 
     public static final ModConfigSpec.IntValue MAX_ICONS = BUILDER
             .comment("Most mob icons drawn at once, nearest to the player first. 0 = no limit.")

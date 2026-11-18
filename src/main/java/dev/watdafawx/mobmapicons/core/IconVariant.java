@@ -146,7 +146,7 @@ record IconVariant(@Nullable ResourceLocation texture, boolean baby, int scale, 
      */
     @Nullable
     static Entity copyOf(Entity source) {
-        Entity copy = create(source.getType());
+        Entity copy = create(source.getType(), source);
         if (copy == null) return null;
         try {
             List<SynchedEntityData.DataValue<?>> values = source.getEntityData().getNonDefaultValues();
@@ -163,16 +163,22 @@ record IconVariant(@Nullable ResourceLocation texture, boolean baby, int scale, 
     /** A fresh instance of {@code type} (the type's default look), or {@code null}. */
     @Nullable
     static Entity fresh(EntityType<?> type) {
-        Entity entity = create(type);
+        Entity entity = create(type, null);
         if (entity != null) normalise(entity);
         return entity;
     }
 
     @Nullable
-    private static Entity create(EntityType<?> type) {
+    private static Entity create(EntityType<?> type, @Nullable Entity source) {
         var level = Minecraft.getInstance().level;
         if (level == null) return null;
         try {
+            if (type == EntityType.PLAYER) {
+                // EntityType.PLAYER cannot create(): draw a RemotePlayer wearing the same profile, so it
+                // gets the same skin and model from the tab list. Never added to the level.
+                var profileOwner = source instanceof net.minecraft.client.player.AbstractClientPlayer p ? p : Minecraft.getInstance().player;
+                return profileOwner == null ? null : new net.minecraft.client.player.RemotePlayer(level, profileOwner.getGameProfile());
+            }
             return type.create(level);
         } catch (Throwable t) {
             MobMapIcons.LOG.debug("Could not create {} for an icon: {}", type, t.toString());

@@ -51,10 +51,14 @@ public final class JourneyMapAdapter implements IClientPlugin {
     }
 
     private static void update(EntityRadarUpdateEvent event) {
-        if (!ClientConfig.journeyMapEnabled() || event.getType() != EntityRadarUpdateEvent.EntityType.MOB) return;
+        if (!ClientConfig.journeyMapEnabled()) return;
         var wrapped = event.getWrappedEntity();
         var entity = wrapped.getEntityRef().get();
-        if (!(entity instanceof Mob mob)) return;
+        if (event.getType() == EntityRadarUpdateEvent.EntityType.PLAYER) {
+            if (ClientConfig.players() && entity instanceof net.minecraft.client.player.RemotePlayer other) updatePlayer(event, wrapped, other);
+            return;
+        }
+        if (event.getType() != EntityRadarUpdateEvent.EntityType.MOB || !(entity instanceof Mob mob)) return;
         var type = entity.getType();
         if (ClientConfig.isBlacklisted(BuiltInRegistries.ENTITY_TYPE.getKey(type))) return;
 
@@ -75,6 +79,16 @@ public final class JourneyMapAdapter implements IClientPlugin {
         }
         ResourceLocation icon = paddedIcon(mob, bucket);
         // JourneyMap clears this override each radar update. Never hand it a pending resource.
+        if (icon != null) wrapped.setEntityIconLocation(icon);
+    }
+
+    private static void updatePlayer(EntityRadarUpdateEvent event, journeymap.api.v2.client.entity.WrappedEntity wrapped,
+                                     net.minecraft.client.player.RemotePlayer player) {
+        int bucket = 0;
+        if (MobIconApi.rotateWithHeading()) {
+            bucket = MobIconApi.yawBucket(player.yBodyRot + (float) minimapRotation(event.getActiveUiState()));
+        }
+        ResourceLocation icon = paddedIcon(player, bucket);
         if (icon != null) wrapped.setEntityIconLocation(icon);
     }
 

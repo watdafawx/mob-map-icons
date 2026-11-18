@@ -143,7 +143,7 @@ final class IconPass {
 
     private static int configHash() {
         return Objects.hash(ClientConfig.farmMode(), ClientConfig.clusterRadius(), ClientConfig.clusterMinCount(),
-                ClientConfig.maxIcons());
+                ClientConfig.maxIcons(), ClientConfig.players());
     }
 
     /** {@code true} when the zoom or config the last pass used no longer matches, so FTB should rebuild. */
@@ -190,8 +190,8 @@ final class IconPass {
                 continue;
             }
             Entity e = FtbChunksAdapter.entityOf(ftb);
-            if (e == null || e instanceof Player) {
-                continue; // FTB draws player faces itself and the local player is never touched
+            if (e == null || e == player || (e instanceof Player && !ClientConfig.players())) {
+                continue; // FTB draws player faces itself unless `players` is on; the local player is never touched
             }
             Mob m = mob();
             m.slot = i;
@@ -438,6 +438,7 @@ final class IconPass {
 
     /** Named, leashed, tamed and boss mobs stay individual. */
     private static boolean mergeable(Entity e) {
+        if (e instanceof Player) return false;
         if (e.hasCustomName()) return false;
         if (e instanceof Leashable l && l.isLeashed()) return false;
         if (e instanceof OwnableEntity o && o.getOwnerUUID() != null) return false;
