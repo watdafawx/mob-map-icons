@@ -181,6 +181,8 @@ final class MobIconScene {
             case "wait" -> waitTicks = Integer.parseInt(arg);
             case "close" -> mc.setScreen(null);
             case "reload" -> mc.reloadResourcePacks();
+            case "config" -> mc.setScreen(new net.neoforged.neoforge.client.gui.ConfigurationScreen(
+                    net.neoforged.fml.ModList.get().getModContainerById(dev.watdafawx.mobmapicons.MobMapIcons.MODID).orElseThrow(), mc.screen));
             case "log" -> MobMapIcons.LOG.info("scene: {}", arg);
             case "cfg" -> {
                 boolean on = Boolean.parseBoolean(n.length > 1 ? n[1] : "");

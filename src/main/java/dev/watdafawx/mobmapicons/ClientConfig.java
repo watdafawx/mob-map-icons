@@ -1,6 +1,7 @@
 package dev.watdafawx.mobmapicons;
 
 import dev.watdafawx.mobmapicons.api.IconMode;
+import dev.watdafawx.mobmapicons.api.IconStyle;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
@@ -22,58 +23,89 @@ public final class ClientConfig {
 
     public static final ModConfigSpec.EnumValue<IconMode> ICON_MODE = BUILDER
             .comment("What to draw: the whole mob model (FULL_BODY) or just its head (HEAD).")
+            .translation("mob_map_icons.configuration.iconMode")
             .defineEnum("iconMode", IconMode.FULL_BODY);
+
+    public static final ModConfigSpec.EnumValue<IconStyle> ICON_STYLE = BUILDER
+            .comment("Icon appearance. CHIBI uses body plus head; HEAD_PIN uses head; TOP_DOWN uses body from above.")
+            .translation("mob_map_icons.configuration.iconStyle")
+            .defineEnum("iconStyle", IconStyle.OUTLINE);
+
+    public static IconStyle iconStyle() {
+        try { return ICON_STYLE.get(); } catch (IllegalStateException notLoaded) { return IconStyle.OUTLINE; }
+    }
+
+    public static java.util.List<Object> iconSettings() {
+        return java.util.List.of(iconStyle(), iconMode(), iconSize(), rotateWithHeading(), tintByHostility(),
+                farmMode(), maxIcons(), clusterRadius(), clusterMinCount(), xaeroScale(), blacklist());
+    }
+
+    private static Object blacklist() {
+        try { return java.util.List.copyOf(BLACKLIST.get()); } catch (IllegalStateException notLoaded) { return List.of(); }
+    }
 
     public static final ModConfigSpec.IntValue ICON_SIZE = BUILDER
             .comment("Icon edge length in pixels, before the map mod scales it.")
+            .translation("mob_map_icons.configuration.iconSize")
             .defineInRange("iconSize", DEFAULT_ICON_SIZE, 8, 64);
 
     public static final ModConfigSpec.BooleanValue ROTATE_WITH_HEADING = BUILDER
             .comment("Turn each mob's icon to face the way the mob is heading on the map (8 directions,",
                     "rendered on demand). Off: every icon faces the viewer. Map adapters read this.")
+            .translation("mob_map_icons.configuration.rotateWithHeading")
             .define("rotateWithHeading", true);
 
     public static final ModConfigSpec.BooleanValue FTB_CHUNKS_ENABLED = BUILDER
             .comment("Draw mob icons on FTB Chunks maps.")
+            .translation("mob_map_icons.configuration.ftbChunks")
             .define("ftbChunks", true);
 
     public static final ModConfigSpec.BooleanValue TINT_BY_HOSTILITY = BUILDER
             .comment("Tint hostile mobs' map icons red (FTB Chunks).")
+            .translation("mob_map_icons.configuration.tintByHostility")
             .define("tintByHostility", false);
 
     public static final ModConfigSpec.BooleanValue XAERO_ENABLED = BUILDER
             .comment("Draw mob icons on Xaero's Minimap and Xaero's World Map.")
+            .translation("mob_map_icons.configuration.xaero")
             .define("xaero", true);
 
     public static final ModConfigSpec.BooleanValue JOURNEYMAP_ENABLED = BUILDER
             .comment("Draw mob icons on JourneyMap.")
+            .translation("mob_map_icons.configuration.journeymap")
             .define("journeymap", true);
 
     public static final ModConfigSpec.BooleanValue FARM_MODE = BUILDER
             .comment("Farm mode: when many mobs of one kind stand close together on the map, draw one icon",
                     "with a count badge instead of a stack (FTB Chunks), or hide the duplicates",
                     "(JourneyMap). Named, leashed, tamed and boss mobs are never merged.")
+            .translation("mob_map_icons.configuration.farmMode")
             .define("farmMode", true);
 
     public static final ModConfigSpec.IntValue MAX_ICONS = BUILDER
             .comment("Most mob icons drawn at once, nearest to the player first. 0 = no limit.")
+            .translation("mob_map_icons.configuration.maxIcons")
             .defineInRange("maxIcons", 150, 0, 5000);
 
     public static final ModConfigSpec.IntValue CLUSTER_RADIUS = BUILDER
             .comment("Farm mode: mobs of the same kind closer than this many screen pixels merge into one icon.")
+            .translation("mob_map_icons.configuration.clusterRadius")
             .defineInRange("clusterRadius", 12, 2, 64);
 
     public static final ModConfigSpec.IntValue CLUSTER_MIN_COUNT = BUILDER
             .comment("Farm mode: a group needs at least this many mobs before it is merged.")
+            .translation("mob_map_icons.configuration.clusterMinCount")
             .defineInRange("clusterMinCount", 3, 2, 100);
 
     public static final ModConfigSpec.DoubleValue XAERO_SCALE = BUILDER
             .comment("Xaero only: how much of the radar cell the icon fills (1.0 = Xaero's default 56 px box).",
                     "Lower it if icons look bigger than Xaero's own heads.")
+            .translation("mob_map_icons.configuration.xaeroScale")
             .defineInRange("xaeroScale", 0.75, 0.25, 1.0);
 
     public static final ModConfigSpec.ConfigValue<List<? extends String>> BLACKLIST = BUILDER
             .comment("Entity type ids that get no icon at all, e.g. \"minecraft:armor_stand\".")
+            .translation("mob_map_icons.configuration.blacklist")
             .defineListAllowEmpty("blacklist", List.<String>of(), () -> "minecraft:armor_stand",
                     ClientConfig::isEntityTypeId);
 

@@ -353,6 +353,7 @@ final class MobIconSelfTest {
         Path dir = MobIconCommands.dumpDir();
         int big = 64;
         try {
+            StyleContactSheet.write(dir, new ArrayList<>(FOUND.values()));
             // Variants, big, facing the viewer.
             List<NativeImage> variants = new ArrayList<>();
             List<String> names = new ArrayList<>();

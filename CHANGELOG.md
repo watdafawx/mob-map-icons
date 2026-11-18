@@ -2,6 +2,9 @@
 
 ## 0.3.0
 
+- Ten live icon styles, default OUTLINE, applied to cached textures and PNGs.
+- In-game config screen and `/mobmapicons style <name>` / `reload` commands.
+- Bounded previous-generation textures during rebuilds; style comparison contact sheets.
 - Xaero: new `xaeroScale` config (default 0.75) sizes icons against Xaero's own 56 px icon box, nearest-neighbour up and area down, republished on change without a resource reload.
 
 ## 0.2.0

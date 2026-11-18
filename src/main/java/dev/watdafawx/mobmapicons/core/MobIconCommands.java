@@ -49,6 +49,16 @@ final class MobIconCommands {
     static void register(RegisterClientCommandsEvent event) {
         CommandDispatcher<CommandSourceStack> dispatcher = event.getDispatcher();
         dispatcher.register(Commands.literal("mobmapicons")
+                .then(Commands.literal("reload").executes(ctx -> { MobIconCache.invalidateAll(); return 1; }))
+                .then(Commands.literal("style").then(Commands.argument("name", com.mojang.brigadier.arguments.StringArgumentType.word())
+                        .suggests((ctx,b) -> SharedSuggestionProvider.suggest(java.util.Arrays.stream(dev.watdafawx.mobmapicons.api.IconStyle.values()).map(v -> v.name().toLowerCase(java.util.Locale.ROOT)),b))
+                        .executes(ctx -> {
+                            try {
+                                var style=dev.watdafawx.mobmapicons.api.IconStyle.valueOf(com.mojang.brigadier.arguments.StringArgumentType.getString(ctx,"name").toUpperCase(java.util.Locale.ROOT));
+                                ClientConfig.ICON_STYLE.set(style); ClientConfig.SPEC.save(); MobIconCache.checkConfig();
+                                ctx.getSource().sendSuccess(() -> Component.literal("Icon style: " + style), false); return 1;
+                            } catch (IllegalArgumentException e) { ctx.getSource().sendFailure(Component.literal("Unknown icon style")); return 0; }
+                        })))
                 .then(Commands.literal("dump").executes(MobIconCommands::dump))
                 .then(Commands.literal("headings").executes(MobIconCommands::headings))
                 .then(Commands.literal("render")
@@ -61,6 +71,7 @@ final class MobIconCommands {
     private static int dump(CommandContext<CommandSourceStack> ctx) {
         Path dir = dumpDir();
         try {
+            MobIconCache.runInFrame(() -> { try { StyleContactSheet.write(dir, java.util.List.of()); } catch (IOException e) { MobMapIcons.LOG.error("Style dump failed", e); } });
             int n = MobIconCache.dumpAll(dir);
             ctx.getSource().sendSuccess(() -> Component.literal("Wrote " + n + " mob icon(s) to " + dir), false);
             return n;
