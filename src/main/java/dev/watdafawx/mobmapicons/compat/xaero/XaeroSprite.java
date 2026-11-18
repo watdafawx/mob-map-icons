@@ -12,13 +12,17 @@ import java.io.IOException;
  * <p>Xaero binds the sprite as a texture and draws it as a fixed 64x64 quad
  * ({@code RadarIconCreator.ICON_WIDTH = 64}), so the image has to be exactly 64x64 or the UVs are wrong.
  * {@code outlined_sprite} makes Xaero add the black outline itself ({@code drawOutlineLayer}), which needs
- * transparent room around the picture, so the content is fitted into a {@link #CONTENT}px box with a
- * {@link #MARGIN}px border.
+ * transparent room around the picture. The icon is copied 1:1 (centred) so it stays pixel-sharp and
+ * {@code iconSize} sets its size on the radar; only icons wider than {@link #MAX_CONTENT} are scaled down.
  */
 final class XaeroSprite {
     static final int SIZE = 64;
-    private static final int MARGIN = 4;
-    private static final int CONTENT = SIZE - 2 * MARGIN;
+    /**
+     * Largest picture that still leaves room for Xaero's outline. Smaller icons are not scaled up:
+     * stretching the default 32px texture to 56px drew our icons about three times the width of
+     * Xaero's own head icons, blurred them, and made {@code iconSize} do nothing on Xaero.
+     */
+    private static final int MAX_CONTENT = 60;
 
     private XaeroSprite() {}
 
@@ -27,6 +31,8 @@ final class XaeroSprite {
         try (NativeImage src = NativeImage.read(new ByteArrayInputStream(sourcePng))) {
             int w = src.getWidth(), h = src.getHeight();
             if (w <= 0 || h <= 0) return null;
+            int side = Math.max(w, h);
+            if (side <= MAX_CONTENT) return copyCentred(src);
 
             // Premultiplied planes so filtering does not bleed black into soft edges.
             float[] pr = new float[w * h], pg = new float[w * h], pb = new float[w * h], pa = new float[w * h];
@@ -42,7 +48,7 @@ final class XaeroSprite {
                 }
             }
 
-            float scale = (float) CONTENT / Math.max(w, h);
+            float scale = (float) MAX_CONTENT / side;
             float outW = w * scale, outH = h * scale;
             float x0 = (SIZE - outW) / 2f, y0 = (SIZE - outH) / 2f;
             int sub = scale < 1f ? 3 : 1; // downscale: average 3x3 bilinear samples per output pixel
@@ -81,6 +87,20 @@ final class XaeroSprite {
             }
         } catch (IOException | RuntimeException e) {
             return null;
+        }
+    }
+
+    /** Pixel-for-pixel copy, centred in the sprite: no resampling, so no blur. */
+    private static byte[] copyCentred(NativeImage src) throws IOException {
+        int w = src.getWidth(), h = src.getHeight();
+        int x0 = (SIZE - w) / 2, y0 = (SIZE - h) / 2;
+        try (NativeImage out = new NativeImage(NativeImage.Format.RGBA, SIZE, SIZE, true)) {
+            for (int y = 0; y < h; y++) {
+                for (int x = 0; x < w; x++) {
+                    out.setPixelRGBA(x0 + x, y0 + y, src.getPixelRGBA(x, y));
+                }
+            }
+            return out.asByteArray();
         }
     }
 

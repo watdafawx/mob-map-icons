@@ -71,7 +71,7 @@ public final class FtbChunksAdapter {
                     Entity entity = (Entity) ICON_ENTITY.get(ftbIcon);
                     ResourceLocation texture = textureFor(entity);
                     if (texture != null) {
-                        it.set(new OverrideIcon(ftbIcon, entity, texture));
+                        it.set(new OverrideIcon(ftbIcon, entity));
                     }
                 }
             }

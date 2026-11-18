@@ -55,6 +55,7 @@ final class XaeroSync {
         Minecraft mc = Minecraft.getInstance();
         if (mc.getOverlay() != null) return; // resource reload / loading screen in progress
 
+        requestVisibleTypes(mc);
         long now = Util.getMillis();
         Snapshot next = compute(desired);
         if (!next.sameContent(desired)) {
@@ -73,6 +74,23 @@ final class XaeroSync {
             }
         }
         if (needsXaeroReload && reloadXaero()) needsXaeroReload = false;
+    }
+
+    /**
+     * Asks the core for an icon for every mob type in the loaded world. Icons render lazily on first
+     * request and nothing on Xaero's side ever asks the core (Xaero reads sprites from our pack), so
+     * without this no icon would ever be rendered and the pack would stay empty.
+     */
+    private static void requestVisibleTypes(Minecraft mc) {
+        if (mc.level == null || !ClientConfig.xaeroEnabled()) return;
+        var seen = new java.util.HashSet<net.minecraft.world.entity.EntityType<?>>();
+        for (var entity : mc.level.entitiesForRendering()) {
+            if (entity instanceof net.minecraft.world.entity.LivingEntity
+                    && !(entity instanceof net.minecraft.world.entity.player.Player)
+                    && seen.add(entity.getType())) {
+                MobIconApi.getIcon(entity.getType());
+            }
+        }
     }
 
     private static void apply(Minecraft mc, Snapshot old, Snapshot next) {

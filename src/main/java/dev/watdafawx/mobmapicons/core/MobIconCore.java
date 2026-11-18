@@ -27,5 +27,6 @@ public final class MobIconCore {
         NeoForge.EVENT_BUS.addListener(RegisterClientCommandsEvent.class, MobIconCommands::register);
 
         if (Boolean.getBoolean(MobIconSelfTest.PROPERTY)) MobIconSelfTest.enable();
+        if (Boolean.getBoolean(MobIconScene.PROPERTY)) MobIconScene.enable();
     }
 }
