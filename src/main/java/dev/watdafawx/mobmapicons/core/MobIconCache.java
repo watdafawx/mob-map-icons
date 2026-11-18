@@ -175,18 +175,29 @@ public final class MobIconCache {
     /** Texture id of the best icon for this entity and bucket (exact or stand-in), or {@code null}. Queues a miss. */
     @Nullable
     public static ResourceLocation getIcon(Entity entity, int bucket) {
-        return best(entity, bucket, true).texture();
+        return best(entity, bucket, ClientConfig.iconStyle(), true).texture();
     }
 
     /** PNG of what {@link #getIcon(Entity, int)} would return. Does not queue. */
     public static byte @Nullable [] getPng(Entity entity, int bucket) {
-        return best(entity, bucket, false).png();
+        return best(entity, bucket, ClientConfig.iconStyle(), false).png();
+    }
+
+    /** Like {@link #getPng(Entity, int)}, but in {@code style} instead of the configured one. */
+    public static byte @Nullable [] getPng(Entity entity, int bucket, IconStyle style) {
+        return best(entity, bucket, style, false).png();
     }
 
     /** Resource location of what {@link #getIcon(Entity, int)} would return. Queues a miss. */
     @Nullable
     public static ResourceLocation getResourceIcon(Entity entity, int bucket) {
-        return best(entity, bucket, true).resource();
+        return best(entity, bucket, ClientConfig.iconStyle(), true).resource();
+    }
+
+    /** Like {@link #getResourceIcon(Entity, int)}, but in {@code style} instead of the configured one. */
+    @Nullable
+    public static ResourceLocation getResourceIcon(Entity entity, int bucket, IconStyle style) {
+        return best(entity, bucket, style, true).resource();
     }
 
     /** {@code true} when the exact icon for this entity and bucket is ready (no stand-in). Does not queue. */
@@ -216,28 +227,33 @@ public final class MobIconCache {
 
     @Nullable
     private static Key keyOf(Entity entity, int bucket) {
+        return keyOf(entity, bucket, ClientConfig.iconStyle());
+    }
+
+    @Nullable
+    private static Key keyOf(Entity entity, int bucket, IconStyle style) {
         EntityType<?> type = entity.getType();
         if (isBlacklisted(type)) return null;
-        return new Key(type, IconVariant.of(entity), Math.floorMod(bucket, MobIconApi.YAW_BUCKETS));
+        return new Key(type, IconVariant.of(entity), Math.floorMod(bucket, MobIconApi.YAW_BUCKETS), style);
     }
 
     /**
      * The exact entry if ready, otherwise the nearest ready bucket of the same variant, otherwise the
      * ready type default; {@link Entry#PENDING}-like (all null) when there is none.
      */
-    private static Entry best(Entity entity, int bucket, boolean queue) {
-        Key key = keyOf(entity, bucket);
+    private static Entry best(Entity entity, int bucket, IconStyle style, boolean queue) {
+        Key key = keyOf(entity, bucket, style);
         if (key == null) return Entry.FAILED;
         Entry exact = queue ? lookup(key, entity) : peek(key);
         if (exact.ready()) return exact;
         synchronized (LOCK) {
             for (int d = 1; d <= MobIconApi.YAW_BUCKETS / 2; d++) {
                 for (int sign = -1; sign <= 1; sign += 2) {
-                    Entry e = ENTRIES.get(new Key(key.type(), key.variant(), Math.floorMod(key.bucket() + sign * d, MobIconApi.YAW_BUCKETS)));
+                    Entry e = ENTRIES.get(new Key(key.type(), key.variant(), Math.floorMod(key.bucket() + sign * d, MobIconApi.YAW_BUCKETS), key.style()));
                     if (e != null && e.ready()) return e;
                 }
             }
-            Entry type = ENTRIES.get(new Key(key.type(), null, 0));
+            Entry type = ENTRIES.get(new Key(key.type(), null, 0, key.style()));
             if (type != null && type.ready()) return type;
         }
         synchronized (LOCK) { return fallback(key); }
@@ -247,7 +263,7 @@ public final class MobIconCache {
     private static Entry fallback(Key key) {
         for (var e : PREVIOUS.entrySet()) {
             Key k=e.getKey();
-            if(k.type()==key.type() && java.util.Objects.equals(k.variant(),key.variant()) && k.bucket()==key.bucket()) return e.getValue();
+            if(k.type()==key.type() && java.util.Objects.equals(k.variant(),key.variant()) && k.bucket()==key.bucket() && k.style()==key.style()) return e.getValue();
         }
         return Entry.PENDING;
     }
@@ -330,7 +346,7 @@ public final class MobIconCache {
                 if(value.ready()) {
                     PREVIOUS.entrySet().removeIf(e -> {
                         Key k=e.getKey();
-                        boolean same=k.type()==key.type() && java.util.Objects.equals(k.variant(),key.variant()) && k.bucket()==key.bucket();
+                        boolean same=k.type()==key.type() && java.util.Objects.equals(k.variant(),key.variant()) && k.bucket()==key.bucket() && k.style()==key.style();
                         if(same) old.add(e.getValue());
                         return same;
                     });

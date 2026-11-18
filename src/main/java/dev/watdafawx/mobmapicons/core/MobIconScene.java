@@ -118,7 +118,8 @@ final class MobIconScene {
     //   wait <ticks>                         pause the script
     //   close                                close the open screen
     //   reload                               resource reload (like F3+T)
-    //   cfg <ftbChunks|xaero|journeymap|tint> <true|false>, cfg mode <HEAD|FULL_BODY>, cfg size <n>
+    //   cfg <ftbChunks|xaero|journeymap|tint> <true|false>, cfg mode <HEAD|FULL_BODY>, cfg size <n>,
+    //   cfg style <ICON_STYLE>, cfg jmframe <AUTO|ON|OFF>
     //   log <text>                           echo to the log
     //   players                              (re)spawn the two fake remote players
     //   cfgplayers <true|false>              the `players` config option
@@ -209,6 +210,10 @@ final class MobIconScene {
                     case "mode" -> dev.watdafawx.mobmapicons.ClientConfig.ICON_MODE.set(
                             dev.watdafawx.mobmapicons.api.IconMode.valueOf(n[1]));
                     case "size" -> dev.watdafawx.mobmapicons.ClientConfig.ICON_SIZE.set(Integer.parseInt(n[1]));
+                    case "style" -> dev.watdafawx.mobmapicons.ClientConfig.ICON_STYLE.set(
+                            dev.watdafawx.mobmapicons.api.IconStyle.valueOf(n[1]));
+                    case "jmframe" -> dev.watdafawx.mobmapicons.ClientConfig.JOURNEYMAP_FRAME.set(
+                            dev.watdafawx.mobmapicons.ClientConfig.JourneyMapFrame.valueOf(n[1]));
                     default -> MobMapIcons.LOG.warn("scene: unknown cfg {}", n[0]);
                 }
             }

@@ -75,6 +75,23 @@ public final class ClientConfig {
             .translation("mob_map_icons.configuration.journeymap")
             .define("journeymap", true);
 
+    /** What JourneyMap's own marker around a mob icon does; see {@code compat/journeymap/FrameRule}. */
+    public enum JourneyMapFrame { AUTO, ON, OFF }
+
+    public static final ModConfigSpec.EnumValue<JourneyMapFrame> JOURNEYMAP_FRAME = BUILDER
+            .comment("JourneyMap only: its own marker (coloured teardrop with a black border) around each mob icon.",
+                    "AUTO = per icon style: badge, head pin, silhouette, retro, chibi and paper ink are finished",
+                    "markers themselves, so JourneyMap's is hidden; outline and shadow only add an edge, so they",
+                    "are drawn plain inside JourneyMap's marker; plain and top down keep it.",
+                    "ON = always keep JourneyMap's marker (our outline, ring and shadow are dropped).",
+                    "OFF = always hide it and draw our icon style as is.")
+            .translation("mob_map_icons.configuration.journeymapFrame")
+            .defineEnum("journeymapFrame", JourneyMapFrame.AUTO);
+
+    public static JourneyMapFrame journeyMapFrame() {
+        try { return JOURNEYMAP_FRAME.get(); } catch (IllegalStateException notLoaded) { return JourneyMapFrame.AUTO; }
+    }
+
     public static final ModConfigSpec.BooleanValue FARM_MODE = BUILDER
             .comment("Farm mode: when many mobs of one kind stand close together on the map, draw one icon",
                     "with a count badge instead of a stack (FTB Chunks), or hide the duplicates",

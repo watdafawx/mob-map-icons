@@ -51,7 +51,10 @@ public final class JourneyMapAdapter implements IClientPlugin {
     }
 
     private static void update(EntityRadarUpdateEvent event) {
-        if (!ClientConfig.journeyMapEnabled()) return;
+        if (!ClientConfig.journeyMapEnabled()) {
+            FrameHider.releaseAll();
+            return;
+        }
         var wrapped = event.getWrappedEntity();
         var entity = wrapped.getEntityRef().get();
         if (event.getType() == EntityRadarUpdateEvent.EntityType.PLAYER) {
@@ -80,9 +83,17 @@ public final class JourneyMapAdapter implements IClientPlugin {
         if (MobIconApi.rotateWithHeading()) {
             bucket = MobIconApi.yawBucket(mob.yBodyRot + (float) minimapRotation(ui));
         }
-        ResourceLocation icon = paddedIcon(mob, bucket);
+        FrameRule rule = FrameRule.of(ClientConfig.iconStyle(), ClientConfig.journeyMapFrame(),
+                MobIconApi.rotateWithHeading(), FrameHider.canHideFill());
+        ResourceLocation icon = paddedIcon(mob, bucket, rule);
         // JourneyMap clears this override each radar update. Never hand it a pending resource.
-        if (icon != null) wrapped.setEntityIconLocation(icon);
+        if (icon != null) {
+            wrapped.setEntityIconLocation(icon);
+            // The marker's black border is JourneyMap's per-entity flag (reset to true on every update); its
+            // coloured fill can only be hidden for all mobs at once, see FrameHider.
+            wrapped.setDrawOutline(!rule.hideFrame());
+        }
+        FrameHider.setFillHidden(rule.hideFrame());
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -124,6 +135,8 @@ public final class JourneyMapAdapter implements IClientPlugin {
         byte[] png = plain == null ? null : MobIconApi.getPng(player, bucket);
         var map = png == null ? null : faces();
         if (map == null) return;
+        // The square box JourneyMap draws round a face is sized for its 16 px face, not for our skin model.
+        FrameHider.setPlayerBoxHidden(true);
         CRC32 crc = new CRC32();
         crc.update(png);
         long hash = crc.getValue() << 20 ^ png.length;
@@ -145,6 +158,7 @@ public final class JourneyMapAdapter implements IClientPlugin {
 
     /** {@code players} was turned off: drop our icon so JourneyMap fetches the face again. */
     private static void restoreFace(net.minecraft.client.player.RemotePlayer player) {
+        FrameHider.setPlayerBoxHidden(false);
         var map = faces();
         if (map == null) return;
         Minecraft.getInstance().execute(() -> {
@@ -166,16 +180,22 @@ public final class JourneyMapAdapter implements IClientPlugin {
                 ui == null ? 0 : ui.zoom, ui == null ? 0 : ui.blockSize, minimapRotation(ui), mob.getType(), verdict);
     }
 
-    /** The mob's icon fitted into JourneyMap's marker, served by {@link PaddedIconPack}; the unpadded one if that fails. */
-    private static ResourceLocation paddedIcon(LivingEntity mob, int bucket) {
-        ResourceLocation plain = MobIconApi.getResourceIcon(mob, bucket); // also queues the render
-        byte[] png = plain == null ? null : MobIconApi.getPng(mob, bucket);
+    /**
+     * The mob's icon in the style {@code rule} picks, served by {@link PaddedIconPack}: fitted into
+     * JourneyMap's round marker when the marker stays, as is when it is hidden. The unpadded one if
+     * fitting fails.
+     */
+    private static ResourceLocation paddedIcon(LivingEntity mob, int bucket, FrameRule rule) {
+        ResourceLocation plain = MobIconApi.getResourceIcon(mob, bucket, rule.body()); // also queues the render
+        byte[] png = plain == null ? null : MobIconApi.getPng(mob, bucket, rule.body());
         if (png == null) return null;
         CRC32 crc = new CRC32();
         crc.update(png);
-        String path = PaddedIconPack.PREFIX + Long.toHexString(crc.getValue()) + "_" + png.length + ".png";
+        // Fitted and as-is copies of one icon never share a path: the bytes behind a path must not change.
+        String path = PaddedIconPack.PREFIX + Long.toHexString(crc.getValue()) + "_" + png.length
+                + (rule.hideFrame() ? "_free" : "_fit") + ".png";
         if (!PaddedIconPack.has(path)) {
-            byte[] padded = IconPadding.fit(png, INSET, true);
+            byte[] padded = rule.hideFrame() ? png : IconPadding.fit(png, INSET, true);
             if (padded == null) return plain;
             PaddedIconPack.put(path, padded);
         }

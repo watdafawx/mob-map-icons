@@ -85,3 +85,23 @@ player is never touched.
 players-ftbchunks.png   FTB Chunks large map (M, 5 zoom steps): face vs full-body skin icon, heading respected.
 players-journeymap.png  JourneyMap minimap, zoomed 2 steps: face vs full-body skin icon. JourneyMap draws players
                         from its own skin-face cache (not the radar icon API), so the adapter puts our icon there.
+
+
+JourneyMap frame (2026-11-18)
+-----------------------------
+journeymap-frames.png   JourneyMap minimap, zoomed 2 steps, same scene and two fake players. Columns: OUTLINE,
+                        BADGE, SILHOUETTE, RETRO, HEAD_PIN. Top row BEFORE (JourneyMap pin + our style = double
+                        frame, black box round the players), bottom row AFTER (journeymapFrame=AUTO).
+                        Real in-game pixels, 2x nearest-neighbour crops, tiled and labelled with Pillow.
+
+Config `journeymapFrame` (default AUTO):
+- AUTO: BADGE, HEAD_PIN, SILHOUETTE, RETRO, CHIBI, PAPER_INK are finished tokens, so JourneyMap's pin is hidden
+  and the style is drawn as is. OUTLINE and SHADOW keep the pin and draw the mob PLAIN inside it. PLAIN and
+  TOP_DOWN keep the pin. With rotateWithHeading=false the pin always stays (its tail is the only heading cue).
+- ON: always keep JourneyMap's pin (OUTLINE, SHADOW, BADGE, HEAD_PIN, SILHOUETTE drawn PLAIN inside it).
+- OFF: always hide the pin, draw the chosen style as is.
+The pin border goes through the API (WrappedEntity.setDrawOutline). The coloured fill is hidden by registering a
+transparent texture over JourneyMap's marker-icon-bg-160 ids in the vanilla TextureManager. The player box is
+DrawEntityStep.playerOutlineTexture, swapped by guarded reflection (one warning and fallback if it moves).
+Players: the square box is gone in every style.
+Not shown: JourneyMap fullscreen map (before/after zoom did not match, so left out).

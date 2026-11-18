@@ -160,6 +160,22 @@ public final class MobIconApi {
     }
 
     /**
+     * Like {@link #getPng(Entity, int)}, in {@code style} instead of the configured icon style. For a map
+     * mod that draws its own frame and wants a variant of the configured look (JourneyMap drops the
+     * outline of OUTLINE inside its marker). Does not queue a render; {@link #getResourceIcon(Entity,
+     * int, IconStyle)} does.
+     */
+    public static byte @Nullable [] getPng(Entity entity, int yawBucket, IconStyle style) {
+        return MobIconCache.getPng(entity, yawBucket, style);
+    }
+
+    /** Like {@link #getResourceIcon(Entity, int)}, in {@code style} instead of the configured icon style. */
+    @Nullable
+    public static ResourceLocation getResourceIcon(Entity entity, int yawBucket, IconStyle style) {
+        return MobIconCache.getResourceIcon(entity, yawBucket, style);
+    }
+
+    /**
      * Maps any yaw in degrees (relative to the map's "facing the viewer" direction, see the class
      * javadoc) to a bucket {@code 0..YAW_BUCKETS-1}: the nearest 45-degree step, so bucket 0 covers
      * {@code -22.5 <= relative < 22.5}. NaN and infinities map to 0.
