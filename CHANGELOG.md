@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.2
+
+- Quick options panel: a key binding (unbound by default) or `/mobmapicons options` opens a small panel over the
+  minimap or a fullscreen map (FTB Chunks, Xaero's World Map, JourneyMap). Style, mode, size, heading, farm mode,
+  players, hostile tint, Xaero scale and max icons change live, with the map visible behind it.
+- Head mode now shows head and shoulders, bigger in the frame; the option reads "Head and shoulders".
+- CHIBI: the shrunk body is bottom-aligned with the head overlapping it, as in the original mock.
+- Dev harness skips Minecraft's first-run Narrator prompt; the self-test now expects the player icon to render.
+
 ## 0.4.1
 
 - JourneyMap: new config `journeymapFrame` (AUTO default, ON, OFF) so JourneyMap's marker no longer fights

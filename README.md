@@ -27,7 +27,8 @@ them is optional: install any subset, and the adapters for the missing ones stay
   readable instead of a blob.
 - **Players too.** Other players are drawn from their own skin, full body, turning with their heading
   (FTB Chunks and JourneyMap). You always keep the map mod's own marker.
-- **Live config.** Every setting applies without a restart.
+- **Live config.** Every setting applies without a restart, and a **quick options panel** floats over the map
+  so you see the change as you make it (see below).
 
 <p align="center">
   <img src="docs/screenshots/heading.png" alt="Icons turn to face the mob's heading" width="700">
@@ -43,6 +44,25 @@ Set `iconStyle` in the config, or run `/mobmapicons style <name>`. Same view, al
 
 Badge, silhouette and head pin tint by category: hostile red, neutral yellow, water blue, ambient grey,
 otherwise green (from the game's own `Enemy`, `NeutralMob` and `MobCategory`, so modded mobs follow it).
+
+## Quick options over the map
+
+Bind **Quick options panel** (Controls > Mob Map Icons) or run `/mobmapicons options`. A small panel opens on top of the
+minimap or any fullscreen map (FTB Chunks, Xaero's World Map, JourneyMap) and every change shows on the map behind it at once.
+Left or right click the Style button to cycle, drag the header to move it, Esc closes it.
+
+<p align="center">
+  <img src="docs/screenshots/options-overlay.png" alt="Quick options panel over the FTB Chunks large map" width="640">
+</p>
+
+## Full body or head
+
+`iconMode = HEAD` draws the head and shoulders, bigger in the frame, for every plain-body style. Flying and very wide mobs
+(bats, dragons, ghasts) keep their full body.
+
+<p align="center">
+  <img src="docs/screenshots/head-mode.png" alt="Full body on the left, head and shoulders on the right" width="800">
+</p>
 
 ## Farm mode
 
@@ -111,19 +131,20 @@ Open **Mods > Mob Map Icons > Config** in game, or edit `config/mob_map_icons-cl
 | Option | Default | What |
 |---|---|---|
 | `iconStyle` | `OUTLINE` | PLAIN, OUTLINE, SILHOUETTE, BADGE, RETRO, TOP_DOWN, CHIBI, PAPER_INK, SHADOW, HEAD_PIN |
-| `iconMode` | `FULL_BODY` | `FULL_BODY` or `HEAD`. CHIBI, HEAD_PIN and TOP_DOWN choose their own view |
+| `iconMode` | `FULL_BODY` | `FULL_BODY` or `HEAD` (head and shoulders). CHIBI, HEAD_PIN and TOP_DOWN choose their own view |
 | `iconSize` | `16` | Icon edge length in pixels (8 to 64) |
 | `rotateWithHeading` | `true` | Turn each icon to face the way the mob is heading (8 directions) |
 | `ftbChunks`, `xaero`, `journeymap` | `true` | Turn an adapter on or off |
 | `farmMode` | `true` | Merge crowds of the same mob into one icon (FTB Chunks: count badge; JourneyMap: label) |
 | `clusterRadius`, `clusterMinCount` | `12`, `3` | Merge distance in screen pixels, and the smallest group that merges |
 | `players` | `true` | Draw other players as their skin's model (FTB Chunks, JourneyMap) |
+| `journeymapFrame` | `AUTO` | JourneyMap only: `AUTO` hides its pin when the style draws its own frame, `ON` always keeps it, `OFF` always hides it |
 | `maxIcons` | `150` | Most mob icons per map, nearest first (0 = no limit) |
 | `xaeroScale` | `0.75` | Xaero only: how much of Xaero's icon box the icon fills (0.25 to 1.0). Lower it for smaller icons |
 | `tintByHostility` | `false` | Tint hostile mobs' icons red (FTB Chunks) |
 | `blacklist` | `[]` | Entity type ids that get no icon, e.g. `"minecraft:armor_stand"` |
 
-Client commands: `/mobmapicons style <name>`, `/mobmapicons reload` (rebuild icons),
+Client commands: `/mobmapicons options` (quick panel), `/mobmapicons style <name>`, `/mobmapicons reload` (rebuild icons),
 `/mobmapicons render <entity_type>`, `/mobmapicons headings` (all 8 headings of the mob you look at) and
 `/mobmapicons dump` (every cached icon plus contact sheets, written to `mob_map_icons_dump/` in the game folder).
 
