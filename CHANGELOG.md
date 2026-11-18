@@ -2,6 +2,7 @@
 
 ## 0.1.0
 
-- Project skeleton: client-only NeoForge 1.21.1 mod, `MobIconApi` / `IconMode`, `ClientConfig`
-  (icon mode, icon size, per-adapter toggles, entity type blacklist), and empty `core` and `compat`
-  packages for the renderer, the cache and the three map mod adapters.
+- First version. Renders each mob type's real model and texture to an icon (full body or head) and
+  shows it on FTB Chunks (minimap and large map), Xaero's Minimap and World Map, and JourneyMap.
+- Config: icon mode, icon size, per-map-mod toggles, hostility tint (FTB Chunks), entity blacklist.
+- Client commands `/mobmapicons render <entity_type>` and `/mobmapicons dump`.
