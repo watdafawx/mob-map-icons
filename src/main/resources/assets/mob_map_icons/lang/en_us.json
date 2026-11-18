@@ -40,5 +40,8 @@
   "mob_map_icons.configuration.iconStyle.CHIBI": "Chibi",
   "mob_map_icons.configuration.iconStyle.PAPER_INK": "Paper Ink",
   "mob_map_icons.configuration.iconStyle.SHADOW": "Shadow",
-  "mob_map_icons.configuration.iconStyle.HEAD_PIN": "Head Pin"
+  "mob_map_icons.configuration.iconStyle.HEAD_PIN": "Head Pin",
+  "mob_map_icons.configuration.blacklist.button": "Edit",
+  "mob_map_icons.configuration.section.mob.map.icons.client.toml": "Map icons",
+  "mob_map_icons.configuration.section.mob.map.icons.client.toml.title": "Mob Map Icons"
 }
