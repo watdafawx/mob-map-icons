@@ -62,6 +62,9 @@ and row/column labels in `styles.txt` / `styles-columns.txt`.
 | `iconSize` | `16` | Icon edge length in pixels (8 to 64) |
 | `rotateWithHeading` | `true` | Turn each icon to face the way the mob is heading (8 directions) |
 | `ftbChunks`, `xaero`, `journeymap` | `true` | Turn an adapter on or off |
+| `farmMode` | `true` | Merge crowds of the same mob into one icon with a count badge (FTB Chunks) |
+| `clusterRadius`, `clusterMinCount` | `12`, `3` | Merge distance in screen pixels, and the smallest group that merges |
+| `maxIcons` | `150` | Most mob icons per map, nearest first (0 = no limit; FTB Chunks) |
 | `tintByHostility` | `false` | Tint hostile mobs' icons red (FTB Chunks) |
 | `blacklist` | `[]` | Entity type ids that get no icon, e.g. `"minecraft:armor_stand"` |
 
@@ -76,6 +79,7 @@ as PNGs to `mob_map_icons_dump/` in the game folder (`dump` also writes `contact
   resource reload and when the icon mode or size changes.
 - **FTB Chunks:** the adapter swaps FTB's own entity icons in the map-icon event for ours. FTB's
   filtering, tooltips and hotkeys still apply, and a mob whose icon is not ready yet keeps FTB's head.
+  Icons turn to the mob's heading, and farm mode merges crowds into one icon with a count badge.
 - **Xaero:** a top-priority in-memory resource pack serves Xaero's per-entity icon definitions and
   sprites, so no Mixin is needed. World Map shares the Minimap's radar renderer.
 - **JourneyMap:** a JourneyMap API v2 plugin sets each mob's icon on the radar update event, served from
