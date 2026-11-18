@@ -266,12 +266,12 @@ public final class QuickOptions {
     }
 
     private static int x(int screenW) {
-        int x = posX != null ? posX : screenW - W - 6;
+        int x = posX != null ? posX : 26;
         return Math.max(0, Math.min(x, screenW - W));
     }
 
     private static int y(int screenH, int h) {
-        int y = posY != null ? posY : 6;
+        int y = posY != null ? posY : (screenH - h) / 2;
         return Math.max(0, Math.min(y, Math.max(0, screenH - h)));
     }
 
@@ -423,7 +423,6 @@ public final class QuickOptions {
             box(g, x, y, w, hover(x, y, w, mx, my) || activeSlider == this);
             int fill = (int) (w * Math.max(0, Math.min(1, (get() - min) / (max - min))));
             g.fill(x, y, x + fill, y + ROW, 0xFF4A6FB0);
-            g.fill(x + Math.max(0, fill - 1), y, x + Math.min(w, fill + 1), y + ROW, 0xFFDDE6FF);
             text(g, mc, Component.translatable("mob_map_icons.options." + key, show()), x, y, w);
         }
     }

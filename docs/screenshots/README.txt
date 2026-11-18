@@ -85,3 +85,16 @@ player is never touched.
 players-ftbchunks.png   FTB Chunks large map (M, 5 zoom steps): face vs full-body skin icon, heading respected.
 players-journeymap.png  JourneyMap minimap, zoomed 2 steps: face vs full-body skin icon. JourneyMap draws players
                         from its own skin-face cache (not the radar icon API), so the adapter puts our icon there.
+
+
+Quick options overlay (2026-11-18)
+----------------------------------
+Taken on rig with `runScene`, panel opened with a bound key (scene steps `bindkey o`, `key o`), style cycled by
+real mouse clicks on the panel's Style button. Crops of the real frame (1920x1080, GUI scale 2) side by side.
+The panel stays open and the map behind it updates live; same scene as above.
+
+options-overlay.png        FTB Chunks large map: style silhouette (left), one click later badge (right).
+options-overlay-xaero.png  Xaero's World Map: silhouette (left), two clicks later retro (right).
+(Also checked, not saved: panel over the JourneyMap fullscreen map and over the in-world FTB Chunks and
+JourneyMap minimaps, same live update. Xaero's minimap did not render in the dev scene, so the in-world case was
+only checked with FTB Chunks and JourneyMap.)
