@@ -53,7 +53,7 @@ public class MobMapIcons {
             }
 
             if (ModList.get().isLoaded(XAERO_MINIMAP) || ModList.get().isLoaded(XAERO_WORLD_MAP)) {
-                // TODO(compat:xaero): loadAdapter("xaero", "dev.watdafawx.mobmapicons.compat.xaero.XaeroAdapter");
+                loadAdapter("xaero", "dev.watdafawx.mobmapicons.compat.xaero.XaeroAdapter");
             }
 
             if (ModList.get().isLoaded(JOURNEYMAP)) {

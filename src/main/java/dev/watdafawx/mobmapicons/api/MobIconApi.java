@@ -49,6 +49,14 @@ public final class MobIconApi {
                 "textures/mob_map_icons/" + id.getNamespace() + "/" + id.getPath() + ".png");
     }
 
+    /**
+     * Cheap "is a finished icon available" check that never starts a render. Stub matching the core API
+     * contract; keep the core's implementation when merging.
+     */
+    public static boolean isReady(EntityType<?> type) {
+        return getResourceIcon(type) != null;
+    }
+
     /** Edge length in pixels of every icon this mod hands out, after config. */
     public static int iconSize() {
         return ClientConfig.iconSize();

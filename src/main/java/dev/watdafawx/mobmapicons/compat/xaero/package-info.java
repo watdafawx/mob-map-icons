@@ -1,11 +1,10 @@
 /**
  * Xaero's Minimap and Xaero's World Map integration.
  *
- * <p>One adapter covers both, since the world map and the minimap draw from the same per-entity icon
- * set. TODO(compat:xaero): add {@code XaeroAdapter} with a static {@code init()} here, gated on
- * {@code xaerominimap} or {@code xaeroworldmap} being loaded and loaded by class name, and add the
- * Xaero jars as {@code compileOnly} dependencies in this file's own
- * {@code // === compat:xaero ===} block.
+ * <p>One adapter covers both: World Map wraps the minimap's own {@code RadarRenderer}, so they share one
+ * per-entity icon set. The adapter is data-only - it serves {@code xaerominimap} entity icon definitions and
+ * sprites from a top-priority in-memory resource pack ({@link dev.watdafawx.mobmapicons.compat.xaero.XaeroIconPack})
+ * and reaches Xaero's reload hooks reflectively, so there is no compile-time dependency on either Xaero jar.
  *
  * <p>Nothing outside this package may touch an adapter - the rest of the mod loads on clients that
  * have neither Xaero mod.

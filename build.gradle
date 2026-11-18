@@ -70,6 +70,8 @@ dependencies {
     // === compat:ftbchunks ===
 
     // === compat:xaero ===
+    // Nothing: the Xaero adapter is data-only (resource-pack JSON + sprites) and reaches Xaero's reload
+    // hooks by reflection, so it needs no Xaero jar at compile time.
 
     // === compat:journeymap ===
     repositories.maven {
