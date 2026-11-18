@@ -16,8 +16,8 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Farm mode: one icon standing in for a group of same-looking mobs in one map cell, with a count badge
- * ({@code x37}, {@code 99+}) and a {@code 37 x Cow} tooltip. Everything FTB asks of an icon delegates
+ * Farm mode: one icon standing in for a connected group of same-looking mobs, with a count badge
+ * ({@code x37}, {@code 999+}) and a {@code 37 x Cow} tooltip. Everything FTB asks of an icon delegates
  * to the group's representative FTB icon (same entity type, so the same visibility and scale rules).
  *
  * <p>The position is the group's live centroid, refreshed once per game tick and interpolated between
@@ -31,20 +31,45 @@ final class ClusterIcon implements MapIcon {
     private final String badge;
     private final Component tooltip;
     private int rep;
+    /** Cleared by {@link IconPass} when this cluster's label would overprint a bigger neighbour's. */
+    private boolean showBadge = true;
 
     private long tick = Long.MIN_VALUE;
     private double prevX, prevY, prevZ, curX, curY, curZ;
+    /** Fan-out nudge in blocks from {@link IconPass} when several kinds share one centroid. */
+    private double offX, offZ;
 
     ClusterIcon(MapIcon repOriginal, Entity[] members, int repIndex, double x, double y, double z) {
         this.original = repOriginal;
         this.members = members;
         this.count = members.length;
         this.rep = repIndex;
-        this.badge = count > 99 ? "99+" : "x" + count;
+        this.badge = count > 999 ? "999+" : "x" + count;
         this.tooltip = Component.literal(count + " x ").append(members[repIndex].getType().getDescription());
         this.curX = this.prevX = x;
         this.curY = this.prevY = y;
         this.curZ = this.prevZ = z;
+    }
+
+    String badgeText() {
+        return badge;
+    }
+
+    boolean showBadge() {
+        return showBadge;
+    }
+
+    void setOffset(double x, double z) {
+        offX = x;
+        offZ = z;
+        curX += x;
+        curZ += z;
+        prevX += x;
+        prevZ += z;
+    }
+
+    void setShowBadge(boolean show) {
+        showBadge = show;
     }
 
     /** A member that still exists, preferring the one picked at build time. */
@@ -85,9 +110,9 @@ final class ClusterIcon implements MapIcon {
             }
         }
         if (n > 0) {
-            curX = sx / n;
+            curX = sx / n + offX;
             curY = sy / n;
-            curZ = sz / n;
+            curZ = sz / n + offZ;
         }
         if (Double.isNaN(prevX)) {
             prevX = curX;
@@ -117,7 +142,9 @@ final class ClusterIcon implements MapIcon {
         } else {
             IconDraw.quad(graphics, texture, e, x, y, w, h, iconAlpha);
         }
-        IconDraw.badge(graphics, badge, x, y, w, h, iconAlpha);
+        if (showBadge) {
+            IconDraw.badge(graphics, badge, x, y, w, h, iconAlpha);
+        }
         IconDraw.drawNanos += System.nanoTime() - t0;
         IconDraw.drawCount++;
     }

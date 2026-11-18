@@ -16,9 +16,10 @@
 - FTB Chunks: icons turn to face the mob's heading (8 directions) on the large map and on a rotating
   minimap, using `MobIconApi.getIcon(entity, yawBucket)`. Off when `rotateWithHeading` is false.
 - FTB Chunks: farm mode. Mobs of the same type and icon that sit within `clusterRadius` screen pixels
-  of each other merge into one icon with an `x37` badge (`99+` cap) and a `37 x Cow` tooltip, once a
+  of each other merge into one icon with an `x37` badge (`999+` cap) and a `37 x Cow` tooltip, once a
   group reaches `clusterMinCount`. Named, leashed, tamed and boss mobs and the local player never
   merge. Zooming in splits clusters; FTB's icon list is rebuilt when the zoom or the config changes.
+- FTB Chunks: farm mode joins touching grid cells of one kind into a single cluster, so a whole pen is one `x150` icon instead of a dozen overlapping `x12` ones; kinds sharing one spot (mixed pens) fan out, and a label that would overprint a bigger neighbour's is dropped (the tooltip stays).
 - FTB Chunks: `maxIcons` caps the icons per map (nearest to the player first; a cluster counts as one).
 - Icon lists are processed in one pass with pooled objects, so 300 mobs on the map cost no more
   than FTB's own heads.

@@ -31,7 +31,8 @@ import java.util.Objects;
  * {@link ClusterIcon}s (farm mode) and caps the number of mob icons (maxIcons).
  *
  * <p><b>Cells.</b> A group is every mob of one entity type and one icon texture (so one look) inside a
- * square cell of {@code clusterRadius} <i>screen</i> pixels. The cell is converted to blocks with the
+ * square cell of {@code clusterRadius} <i>screen</i> pixels; groups in touching cells (8-neighbourhood) of
+ * the same look are joined, so a contiguous pen is one cluster however many cells it covers. The cell is converted to blocks with the
  * map's current pixels per block, so zooming in shrinks the cell in world space and groups split by
  * themselves. FTB only builds the list when it is asked to, so {@link #stale} lets the adapter spot a
  * zoom or config change and ask for a rebuild.
@@ -51,6 +52,12 @@ final class IconPass {
 
     private static final class Group {
         final ArrayList<Mob> members = new ArrayList<>();
+        /** The cell this group was first created for; used to find its neighbours. */
+        Key key;
+        int idx;
+        /** Centroid in blocks and label slot, filled when the group is folded into a cluster. */
+        double cx, cz;
+        ClusterIcon icon;
     }
 
     /** Hash key: cell + entity type + icon texture. One mutable probe instance serves every lookup. */
@@ -86,6 +93,10 @@ final class IconPass {
     private static final Key PROBE = new Key();
     private static int mobCount;
     private static int groupCount;
+    private static final ArrayList<Group> CLUSTERS = new ArrayList<>();
+    /** The four "forward" neighbours of a cell; each pair of adjacent cells is visited once. */
+    private static final int[][] FORWARD = {{1, 0}, {1, 1}, {0, 1}, {-1, 1}};
+    private static int[] parent = new int[0];
     private static boolean[] dropSlot = new boolean[0];
     private static double[] distScratch = new double[0];
 
@@ -206,13 +217,41 @@ final class IconPass {
             Group g = CELLS.get(PROBE);
             if (g == null) {
                 g = group();
-                CELLS.put(PROBE.copy(), g);
+                g.key = PROBE.copy();
+                g.idx = groupCount - 1;
+                CELLS.put(g.key, g);
             }
             g.members.add(m);
         }
 
-        // 2. Fold big enough groups into one cluster icon at the first member's slot.
+        // 2. Join neighbouring cells of one look (union-find over the forward 8-neighbourhood), so a
+        //    contiguous pen is one component however many grid cells it spans, then fold every component
+        //    that is big enough into one cluster icon at its first member's slot.
         if (farm) {
+            if (parent.length < groupCount) {
+                parent = new int[Math.max(groupCount, parent.length * 2)];
+            }
+            for (int gi = 0; gi < groupCount; gi++) parent[gi] = gi;
+            for (int gi = 0; gi < groupCount; gi++) {
+                Key k = GROUPS.get(gi).key;
+                PROBE.type = k.type;
+                PROBE.texture = k.texture;
+                for (int[] d : FORWARD) {
+                    PROBE.cx = k.cx + d[0];
+                    PROBE.cz = k.cz + d[1];
+                    Group nb = CELLS.get(PROBE);
+                    if (nb != null) union(gi, nb.idx);
+                }
+            }
+            for (int gi = 0; gi < groupCount; gi++) {
+                int r = find(gi);
+                if (r != gi) {
+                    Group src = GROUPS.get(gi);
+                    GROUPS.get(r).members.addAll(src.members);
+                    src.members.clear();
+                }
+            }
+            CLUSTERS.clear();
             for (int gi = 0; gi < groupCount; gi++) {
                 Group g = GROUPS.get(gi);
                 int size = g.members.size();
@@ -243,13 +282,18 @@ final class IconPass {
                     }
                 }
                 Mob first = g.members.get(0);
-                icons.set(first.slot, new ClusterIcon(g.members.get(repIdx).ftbIcon, arr, repIdx, cx, cy, cz));
+                g.icon = new ClusterIcon(g.members.get(repIdx).ftbIcon, arr, repIdx, cx, cy, cz);
+                g.cx = cx;
+                g.cz = cz;
+                icons.set(first.slot, g.icon);
+                CLUSTERS.add(g);
                 double dx = cx - player.getX(), dy = cy - player.getY(), dz = cz - player.getZ();
                 first.distSq = dx * dx + dy * dy + dz * dz;
                 for (int k = 1; k < size; k++) {
                     g.members.get(k).drop = true;
                 }
             }
+            layoutLabels(px);
         }
 
         // 3. Cap: keep the nearest maxIcons icons (a cluster counts once, at its centroid).
@@ -317,12 +361,79 @@ final class IconPass {
             m.ftbIcon = null;
         }
         CELLS.clear();
-        for (int gi = 0; gi < groupCount; gi++) GROUPS.get(gi).members.clear();
+        for (int gi = 0; gi < groupCount; gi++) {
+            Group g = GROUPS.get(gi);
+            g.members.clear();
+            g.icon = null;
+        }
+        CLUSTERS.clear();
 
         lastIn = n;
         lastOut = out;
         passNanos += System.nanoTime() - t0;
         passCount++;
+    }
+
+    private static int find(int i) {
+        while (parent[i] != i) {
+            parent[i] = parent[parent[i]]; // path halving
+            i = parent[i];
+        }
+        return i;
+    }
+
+    private static void union(int a, int b) {
+        int ra = find(a), rb = find(b);
+        if (ra != rb) parent[Math.max(ra, rb)] = Math.min(ra, rb);
+    }
+
+    /** Icon centres closer than this many GUI pixels would overprint each other or their count labels. */
+    private static final double SPACING = 20.0;
+    private static final int[][] RING = {{1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, 1}, {-1, -1}, {1, -1}, {-1, 1}};
+
+    /**
+     * Keeps cluster icons and their count labels readable. Biggest clusters claim their spot first. A
+     * smaller cluster whose centre lands within {@link #SPACING} screen pixels of a placed one (a mixed
+     * pen: several kinds share one centroid) is nudged out to the nearest free spot on a ring around it,
+     * so every kind stays visible and keeps its own label. When no free spot exists (zoomed far out) it
+     * stays put, loses its label and keeps its tooltip, so no two labels ever overprint.
+     */
+    private static void layoutLabels(double px) {
+        int k = CLUSTERS.size();
+        if (k == 0) return;
+        CLUSTERS.sort((a, b) -> Integer.compare(b.members.size(), a.members.size()));
+        double minDist = SPACING / px; // blocks
+        double minSq = minDist * minDist;
+        for (int i = 0; i < k; i++) {
+            Group a = CLUSTERS.get(i);
+            double ox = 0, oz = 0;
+            boolean ok = free(a, a.cx, a.cz, i, minSq);
+            for (int r = 1; r <= 2 && !ok; r++) {
+                for (int[] d : RING) {
+                    ox = d[0] * minDist * r * (d[0] != 0 && d[1] != 0 ? 0.71 : 1);
+                    oz = d[1] * minDist * r * (d[0] != 0 && d[1] != 0 ? 0.71 : 1);
+                    if (free(a, a.cx + ox, a.cz + oz, i, minSq)) {
+                        ok = true;
+                        break;
+                    }
+                }
+            }
+            if (ok) {
+                a.cx += ox;
+                a.cz += oz;
+                a.icon.setOffset(ox, oz);
+            }
+            a.icon.setShowBadge(ok);
+        }
+    }
+
+    private static boolean free(Group a, double x, double z, int upTo, double minSq) {
+        for (int j = 0; j < upTo; j++) {
+            Group b = CLUSTERS.get(j);
+            double dx = x - b.cx, dz = z - b.cz;
+            if (dx * dx + dz * dz < minSq) return false;
+        }
+        return true;
     }
 
     /** Named, leashed, tamed and boss mobs stay individual. */
