@@ -41,6 +41,15 @@ neoForge {
             gameDirectory = file('run')
             systemProperty 'mobmapicons.selftest', 'true'
         }
+        // Dev map check: fresh creative superflat world at noon with a fixed spread of NoAI mobs
+        // around the player, then stays open. Put the map mod jars to test in run/mods/. See
+        // core/MobIconScene. Opens a game window: run it on rig, never on the dev PC.
+        scene {
+            client()
+            gameDirectory = file('run')
+            systemProperty 'mobmapicons.scene', 'true'
+            programArguments.addAll('--width', '1920', '--height', '1080')
+        }
         configureEach {
             systemProperty 'forge.logging.markers', 'REGISTRIES'
             logLevel = org.slf4j.event.Level.DEBUG
