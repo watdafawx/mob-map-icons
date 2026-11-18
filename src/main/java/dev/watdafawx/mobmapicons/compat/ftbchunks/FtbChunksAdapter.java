@@ -1,21 +1,22 @@
 package dev.watdafawx.mobmapicons.compat.ftbchunks;
 
+import dev.ftb.mods.ftbchunks.api.FTBChunksAPI;
 import dev.ftb.mods.ftbchunks.api.client.event.MapIconEvent;
 import dev.ftb.mods.ftbchunks.api.client.icon.MapIcon;
+import dev.ftb.mods.ftbchunks.api.client.icon.MapType;
+import dev.ftb.mods.ftbchunks.client.gui.LargeMapScreen;
 import dev.ftb.mods.ftbchunks.client.mapicon.EntityMapIcon;
+import dev.ftb.mods.ftblibrary.util.client.ClientUtils;
 import dev.watdafawx.mobmapicons.ClientConfig;
 import dev.watdafawx.mobmapicons.MobMapIcons;
-import dev.watdafawx.mobmapicons.api.MobIconApi;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.player.Player;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
+import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.client.event.RenderFrameEvent;
 import net.neoforged.neoforge.common.NeoForge;
 
 import java.lang.reflect.Field;
 import java.util.List;
-import java.util.ListIterator;
 
 /**
  * FTB Chunks adapter: swaps FTB's own mob heads / red dots for our rendered mob icons.
@@ -24,10 +25,11 @@ import java.util.ListIterator;
  * the same mob would draw on top of FTB's. Rather than fight FTB's per-type {@code ENTITY_ICON} config
  * (a persisted file FTB re-saves whenever it meets a new mob type) or mix into its classes, this runs
  * <i>after</i> FTB's own listener and edits the event's list in place: every {@link EntityMapIcon} FTB
- * built for a non-player entity whose type already has a ready icon is swapped for an {@link OverrideIcon}
- * wrapping it. That inherits every FTB rule for free (minimap.entities master switch, the per-type
- * toggle, invisible entities, only-surface, empty icons, edge culling) and shows FTB's own icon for any
- * type that is not ready yet, with zero config or class patching.
+ * built for a non-player entity is swapped for an {@link OverrideIcon} wrapping it. That inherits every
+ * FTB rule for free (minimap.entities master switch, the per-type toggle, invisible entities,
+ * only-surface, empty icons, edge culling) and shows FTB's own icon for any mob whose icon is not ready
+ * yet, with zero config or class patching. {@link IconPass} does that walk and also folds crowds into
+ * one {@link ClusterIcon} (farm mode) and applies the maxIcons cap.
  *
  * <p>Two private FTB fields are read reflectively (the event's list and the icon's entity). If a future
  * FTB renames them the adapter logs once and does nothing, so FTB keeps its own icons.
@@ -57,6 +59,8 @@ public final class FtbChunksAdapter {
         registered = true;
         MapIconEvent.MINIMAP.register(FtbChunksAdapter::replaceIcons);
         MapIconEvent.LARGE_MAP.register(FtbChunksAdapter::replaceIcons);
+        NeoForge.EVENT_BUS.addListener(FtbChunksAdapter::onClientTick);
+        NeoForge.EVENT_BUS.addListener(RenderFrameEvent.Post.class, frame -> FtbPerf.frame());
     }
 
     @SuppressWarnings("unchecked")
@@ -65,31 +69,43 @@ public final class FtbChunksAdapter {
             return;
         }
         try {
-            List<MapIcon> icons = (List<MapIcon>) EVENT_ICONS.get(event);
-            for (ListIterator<MapIcon> it = icons.listIterator(); it.hasNext(); ) {
-                if (it.next() instanceof EntityMapIcon ftbIcon) {
-                    Entity entity = (Entity) ICON_ENTITY.get(ftbIcon);
-                    ResourceLocation texture = textureFor(entity);
-                    if (texture != null) {
-                        it.set(new OverrideIcon(ftbIcon, entity));
-                    }
-                }
-            }
+            IconPass.process(event.getMapType(), (List<MapIcon>) EVENT_ICONS.get(event));
         } catch (ReflectiveOperationException | RuntimeException e) {
             warnOnce(e);
         }
     }
 
-    /** Our icon texture for this entity, or null to leave FTB's own icon in place. */
-    private static ResourceLocation textureFor(Entity entity) {
-        if (entity == null || entity instanceof Player) {
-            return null; // FTB draws player faces itself
-        }
-        ResourceLocation id = BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType());
-        if (ClientConfig.isBlacklisted(id)) {
+    /** The entity behind one of FTB's own entity icons, or null if FTB's internals changed. */
+    static Entity entityOf(EntityMapIcon icon) {
+        try {
+            return (Entity) ICON_ENTITY.get(icon);
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            warnOnce(e);
             return null;
         }
-        return MobIconApi.getIcon(entity.getType());
+    }
+
+    // Farm mode groups by screen cell, so a zoom (or a config edit) must rebuild FTB's icon lists. The
+    // minimap rebuilds itself every 500 ms; the large map only on request, so ask for it here.
+    private static int sinceLargeRefresh;
+
+    private static void onClientTick(ClientTickEvent.Post event) {
+        FtbPerf.tick();
+        if (!ClientConfig.ftbChunksEnabled() || EVENT_ICONS == null || ICON_ENTITY == null) {
+            return;
+        }
+        try {
+            if (IconPass.stale(MapType.MINIMAP)) {
+                FTBChunksAPI.clientApi().requestMinimapIconRefresh();
+            }
+            if (++sinceLargeRefresh >= 5 && ClientUtils.getCurrentGuiAs(LargeMapScreen.class) instanceof LargeMapScreen map
+                    && IconPass.stale(MapType.LARGE_MAP)) {
+                sinceLargeRefresh = 0;
+                map.refreshIcons();
+            }
+        } catch (LinkageError | RuntimeException e) {
+            warnOnce(e instanceof Exception ex ? ex : new RuntimeException(e));
+        }
     }
 
     private static Field field(Class<?> owner, String name) {
