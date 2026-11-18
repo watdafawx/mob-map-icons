@@ -45,8 +45,10 @@ final class IconStyles {
             }
             fit(pin && head!=null?head:source,out,(int)(2*(radius-ring)-3),(int)Math.round(cy-n/2.0),0,1);
         } else if(style==IconStyle.CHIBI && head!=null) {
-            fit(source,out,(int)(n*.60), (int)(n*.27),.35,.77);
-            fit(head,out,(int)(n*.84),-(int)(n*.13),0,.66/.84);
+            // Mock "8 chibi": lower 65% of the body shrunk to ~46% of the icon and bottom-aligned, then
+            // the head (66% tall) sitting on it, overlapping the body's top by 18% of the head height.
+            int[] body=fit(source,out,(int)(n*.60),0,.35,.77,1,n);
+            fit(head,out,(int)(n*.84),0,0,.66/.84,2,body==null?n:body[1]);
             outline(out,rgb(24,18,20));
         } else if(style==IconStyle.RETRO) {
             try(NativeImage small=new NativeImage(16,16,true)) {
@@ -146,11 +148,29 @@ final class IconStyles {
         int c=alpha<<24;for(int s=0;s<24;s+=8)c|=((((src>>s)&255)*a+((dst>>s)&255)*b*(255-a)/255)/alpha)<<s;return c;
     }
     private static void fit(NativeImage src,NativeImage dst,int box,int offset,double crop,double heightScale) {
+        fit(src,dst,box,offset,crop,heightScale,0,0);
+    }
+    /**
+     * Scales the opaque part of src (minus the top {@code crop} share) into dst. anchor 0: centred, shifted
+     * by offset. 1: bottom edge at anchorY. 2: bottom edge at anchorY+18% of its height, top clamped to 0.
+     * @return {x, y, w, h} as placed, or null when src is empty
+     */
+    private static int[] fit(NativeImage src,NativeImage dst,int box,int offset,double crop,double heightScale,int anchor,int anchorY) {
         int x0=src.getWidth(),y0=src.getHeight(),x1=-1,y1=-1;
         for(int y=0;y<src.getHeight();y++)for(int x=0;x<src.getWidth();x++)if((src.getPixelRGBA(x,y)>>>24)>8){x0=Math.min(x0,x);y0=Math.min(y0,y);x1=Math.max(x1,x);y1=Math.max(y1,y);}
-        if(x1<0)return;y0+=(int)((y1-y0+1)*crop);
+        if(x1<0)return null;
+        if(crop>0) {
+            y0+=(int)((y1-y0+1)*crop);
+            // Re-measure the width of what is left, so a cropped-off head or wings do not shrink the body.
+            int nx0=src.getWidth(),nx1=-1;
+            for(int y=y0;y<=y1;y++)for(int x=x0;x<=x1;x++)if((src.getPixelRGBA(x,y)>>>24)>8){nx0=Math.min(nx0,x);nx1=Math.max(nx1,x);}
+            if(nx1<0)return null;
+            x0=nx0;x1=nx1;
+        }
         double scale=Math.min((double)Math.max(1,box)/(x1-x0+1),(double)Math.max(1,box)*heightScale/(y1-y0+1));
         int w=Math.max(1,(int)Math.round((x1-x0+1)*scale)),h=Math.max(1,(int)Math.round((y1-y0+1)*scale)),ox=(dst.getWidth()-w)/2,oy=(dst.getHeight()-h)/2+offset;
+        if(anchor==1) oy=anchorY-h;
+        else if(anchor==2) oy=Math.max(0,anchorY-(int)Math.round(h*.82));
         for(int y=0;y<h;y++)for(int x=0;x<w;x++) {
             if(ox+x<0||oy+y<0||ox+x>=dst.getWidth()||oy+y>=dst.getHeight())continue;
             int c;
@@ -164,5 +184,6 @@ final class IconStyles {
             }
             dst.setPixelRGBA(ox+x,oy+y,over(c,dst.getPixelRGBA(ox+x,oy+y)));
         }
+        return new int[]{ox,oy,w,h};
     }
 }
