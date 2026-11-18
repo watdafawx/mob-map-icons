@@ -75,6 +75,22 @@ dependencies {
     // several agents can edit this file without fighting over the same lines.
 
     // === compat:ftbchunks ===
+    // FTB Chunks is optional (reached only through compat/ftbchunks, loaded by name once
+    // ModList.isLoaded("ftbchunks")). compileOnly: it must never end up on the shipped jar's runtime
+    // requirements. Library/architectury are what its API types (Icon, MapIcon, TooltipList) extend.
+    project.repositories {
+        maven {
+            url "https://maven.ftb.dev/releases"
+            content { includeGroup "dev.ftb.mods" }
+        }
+        maven {
+            url "https://maven.architectury.dev"
+            content { includeGroup "dev.architectury" }
+        }
+    }
+    compileOnly "dev.ftb.mods:ftb-chunks-neoforge:2101.1.24"
+    compileOnly "dev.ftb.mods:ftb-library-neoforge:2101.1.40"
+    compileOnly "dev.architectury:architectury-neoforge:13.0.12"
 
     // === compat:xaero ===
 
