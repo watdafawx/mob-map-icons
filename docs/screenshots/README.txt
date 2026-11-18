@@ -116,3 +116,17 @@ options-overlay-xaero.png  Xaero's World Map: silhouette (left), two clicks late
 (Also checked, not saved: panel over the JourneyMap fullscreen map and over the in-world FTB Chunks and
 JourneyMap minimaps, same live update. Xaero's minimap did not render in the dev scene, so the in-world case was
 only checked with FTB Chunks and JourneyMap.)
+
+CHIBI fix and HEAD mode (2026-11-18)
+------------------------------------
+Taken on rig with `runScene` (FTB Chunks large map, 5 zoom steps, 2x nearest-neighbour crops, labelled with Pillow),
+after the CHIBI re-layout (body bottom-aligned, head overlapping 18%) and the wider HEAD crop (head plus shoulders).
+
+styles-gallery.png        Retaken: all ten styles, same view, switched live. CHIBI now shows the head clearly above a
+                          shrunk body (checked at iconSize 16 and 32 against the style mocks, column "8 chibi").
+head-mode.png             FTB Chunks large map, OUTLINE: iconMode FULL_BODY (left) vs HEAD (right), same view.
+                          HEAD shows the head plus a bit of shoulders (villager, zombie, iron golem); creeper, pig,
+                          cow, sheep, wolf are head only because they have no shoulders.
+options-overlay-head.png  Quick options overlay: one click on the Mode button (full_body -> head) and the map behind
+                          it switches to head icons at once. Crop of the real frame, 1.5x.
+(HEAD with PLAIN, BADGE and RETRO was checked on the same view, not saved: no cut-off heads.)
