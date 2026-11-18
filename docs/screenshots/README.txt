@@ -33,3 +33,26 @@ Notes
   default is "Player List"). Xaero's own pig/cat/wolf icons are overridden.
 - JourneyMap draws mob icons at its own fixed size inside its heading markers, so iconSize has no
   visible effect there.
+
+Xaero re-shoot, config screen and style gallery (2026-11-18)
+------------------------------------------------------------
+Same scene as above plus 2 more sheep (red, blue) and a second (black) cat, fire resistance so nothing
+burns, default config (FULL_BODY, OUTLINE, iconSize 16, xaeroScale 0.75). Crops of the real frame,
+enlarged 2x with nearest-neighbour. Taken on rig with `runScene`, driven through run/scene-cmd.txt
+(scene steps `click`, `key`, `type`, `cmd`, `shot`).
+
+xaero-minimap.png    Xaero's Minimap, radar "Display icons" = Always, minimap_zoom 4, xaeroScale 0.75.
+xaero-worldmap.png   Xaero's World Map (M), 5 scroll steps in, same radar setting.
+config-screen.png    Mods > Mob Map Icons > Config (NeoForge ConfigurationScreen). Every option fits on
+                     one screen: Icon style, Icon size, Farm mode, Xaero scale and the rest.
+styles-gallery.png   The same view on the FTB Chunks large map (M, 5 zoom steps) in each of the ten icon
+                     styles, switched live with `/mobmapicons style <name>`. One crop per style, same
+                     region, tiled and labelled with Pillow. Real in-game pixels, no mock-up.
+
+Notes
+- Xaero picks up a style or xaeroScale change on its own within ~1-3 s (the adapter polls once a
+  second, then Xaero reloads its radar sprites). No F3+T needed.
+- Xaero draws one icon per entity type, so differently coloured sheep all show the white sheep. FTB
+  Chunks draws the per-variant icon (red and blue sheep in the gallery).
+- Xaero's own radar icons are small heads. Full-body icons at xaeroScale 0.75 are about 2x their size;
+  0.5 is close to Xaero's own size, 1.0 fills the whole radar cell and overlaps in a crowd.

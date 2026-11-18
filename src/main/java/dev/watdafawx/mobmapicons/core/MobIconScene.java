@@ -109,6 +109,7 @@ final class MobIconScene {
     //   click <x> <y>                        left click at window pixels
     //   scroll <x> <y> <amount>              mouse wheel at window pixels
     //   cmd <command without slash>          run a command
+    //   type <text>                          type characters into the focused text field
     //   shot <name>                          screenshot to screenshots/<name>.png
     //   wait <ticks>                         pause the script
     //   close                                close the open screen
@@ -176,6 +177,12 @@ final class MobIconScene {
                 scroll.invoke(mc.mouseHandler, window, 0.0, Double.parseDouble(n[2]));
             }
             case "cmd" -> mc.player.connection.sendCommand(arg);
+            case "type" -> {
+                var typed = net.minecraft.client.KeyboardHandler.class.getDeclaredMethod("charTyped",
+                        long.class, int.class, int.class);
+                typed.setAccessible(true);
+                for (char c : arg.toCharArray()) typed.invoke(mc.keyboardHandler, window, (int) c, 0);
+            }
             case "shot" -> net.minecraft.client.Screenshot.grab(mc.gameDirectory, arg + ".png",
                     mc.getMainRenderTarget(), msg -> MobMapIcons.LOG.info("scene: shot {}", arg));
             case "wait" -> waitTicks = Integer.parseInt(arg);
