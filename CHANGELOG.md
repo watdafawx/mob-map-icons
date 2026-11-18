@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.0
+
+- Xaero: new `xaeroScale` config (default 0.75) sizes icons against Xaero's own 56 px icon box, nearest-neighbour up and area down, republished on change without a resource reload.
+
 ## 0.2.0
 
 - Icons per variant: babies, sheep colours, villager type and profession, cat/wolf/horse/fish

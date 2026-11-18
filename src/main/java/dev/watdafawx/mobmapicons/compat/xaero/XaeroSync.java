@@ -28,6 +28,8 @@ import java.util.HashMap;
  *   <li>Nothing happens while a reload or loading overlay is up.</li>
  *   <li>An icon that goes "not ready" (the core is re-rendering it) keeps its previous sprite instead of
  *       flickering back to Xaero's model; only a blacklist hit or the config toggle removes it.</li>
+ *   <li>{@code xaeroScale} is part of the snapshot key, so changing it republishes every sprite on the next
+ *       poll (the sprite is a fixed 64x64 quad, so a different icon size means different pixels).</li>
  * </ul>
  *
  * <p>Xaero is touched only reflectively ({@code HudMod.INSTANCE -> ... -> MinimapFBORenderer}), so there is no
@@ -99,15 +101,20 @@ final class XaeroSync {
         var textures = mc.getTextureManager();
         for (var id : old.ids()) {
             var now = next.get(id);
-            if (now == null || !old.get(id).sameSource(now.source())) textures.release(XaeroIconPack.spriteLocation(id));
+            // Also true when only xaeroScale changed: the old sprite was drawn at the other size.
+            if (now == null || !old.get(id).matches(now.source(), now.scale())) {
+                textures.release(XaeroIconPack.spriteLocation(id));
+            }
         }
         needsXaeroReload = true;
         MobMapIcons.LOG.info("Xaero: serving {} mob icons (was {})", next.entries().size(), old.entries().size());
     }
 
-    /** Fresh snapshot: keeps old entries whose source is unchanged, converts only new or changed icons. */
+    /** Fresh snapshot: keeps old entries whose source and scale are unchanged, converts only the rest. */
     private static Snapshot compute(Snapshot previous) {
         if (!ClientConfig.xaeroEnabled()) return Snapshot.EMPTY;
+        // Read once per poll: a change is picked up by the next poll and republishes every sprite.
+        double scale = ClientConfig.xaeroScale();
         var entries = new HashMap<ResourceLocation, Snapshot.Entry>();
         for (var type : BuiltInRegistries.ENTITY_TYPE) {
             ResourceLocation id = BuiltInRegistries.ENTITY_TYPE.getKey(type);
@@ -117,11 +124,11 @@ final class XaeroSync {
             byte[] png = MobIconApi.isReady(type) ? MobIconApi.getPng(type) : null;
             if (png == null) {
                 if (old != null) entries.put(id, old);
-            } else if (old != null && old.sameSource(png)) {
+            } else if (old != null && old.matches(png, scale)) {
                 entries.put(id, old);
             } else {
-                byte[] sprite = XaeroSprite.convert(png);
-                if (sprite != null) entries.put(id, new Snapshot.Entry(png.clone(), sprite));
+                byte[] sprite = XaeroSprite.convert(png, scale);
+                if (sprite != null) entries.put(id, new Snapshot.Entry(png.clone(), sprite, scale));
                 else if (old != null) entries.put(id, old);
             }
         }

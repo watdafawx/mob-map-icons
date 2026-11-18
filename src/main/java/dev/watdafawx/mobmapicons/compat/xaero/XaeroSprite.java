@@ -1,90 +1,56 @@
 package dev.watdafawx.mobmapicons.compat.xaero;
 
 import com.mojang.blaze3d.platform.NativeImage;
+import dev.watdafawx.mobmapicons.ClientConfig;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 
 /**
- * Turns a mob icon PNG (any square-ish size, {@code iconSize} 8..64) into the 64x64 RGBA sprite that
- * Xaero's {@code RadarIconSpriteFormPrerenderer} expects.
+ * Turns a mob icon PNG (any size, {@code iconSize} 8..64) into the 64x64 RGBA sprite that Xaero's
+ * {@code RadarIconSpriteFormPrerenderer} expects.
  *
  * <p>Xaero binds the sprite as a texture and draws it as a fixed 64x64 quad
  * ({@code RadarIconCreator.ICON_WIDTH = 64}), so the image has to be exactly 64x64 or the UVs are wrong.
  * {@code outlined_sprite} makes Xaero add the black outline itself ({@code drawOutlineLayer}), which needs
- * transparent room around the picture. The icon is copied 1:1 (centred) so it stays pixel-sharp and
- * {@code iconSize} sets its size on the radar; only icons wider than {@link #MAX_CONTENT} are scaled down.
+ * transparent room around the picture.
+ *
+ * <p>Our own PNGs are drawn tight to their edges, whereas Xaero's model icons fill roughly
+ * {@link #BASE_CONTENT} px of the 64px cell. {@link ClientConfig#xaeroScale()} says how much of that box
+ * the icon should fill (1.0 = 56 px, the default 0.75 = 42 px), so the picture is scaled to that size and
+ * centred, leaving the rest transparent for the outline. Upscaling uses NEAREST (pixel art stays crisp);
+ * downscaling averages a 3x3 grid of bilinear samples per output pixel.
  */
 final class XaeroSprite {
     static final int SIZE = 64;
-    /**
-     * Largest picture that still leaves room for Xaero's outline. Smaller icons are not scaled up:
-     * stretching the default 32px texture to 56px drew our icons about three times the width of
-     * Xaero's own head icons, blurred them, and made {@code iconSize} do nothing on Xaero.
-     */
-    private static final int MAX_CONTENT = 60;
+    /** Box {@link ClientConfig#xaeroScale()} is relative to: about the size of Xaero's own model icons. */
+    private static final int BASE_CONTENT = 56;
 
     private XaeroSprite() {}
 
-    /** @return 64x64 PNG bytes, or {@code null} if the source could not be decoded */
+    /** @return 64x64 PNG bytes at the configured scale, or {@code null} if the source could not be decoded */
     static byte[] convert(byte[] sourcePng) {
+        return convert(sourcePng, ClientConfig.xaeroScale());
+    }
+
+    /**
+     * @param contentScale how much of {@link #BASE_CONTENT} the picture fills, matching the config range
+     * @return 64x64 PNG bytes, or {@code null} if the source could not be decoded
+     */
+    static byte[] convert(byte[] sourcePng, double contentScale) {
         try (NativeImage src = NativeImage.read(new ByteArrayInputStream(sourcePng))) {
             int w = src.getWidth(), h = src.getHeight();
             if (w <= 0 || h <= 0) return null;
             int side = Math.max(w, h);
-            if (side <= MAX_CONTENT) return copyCentred(src);
+            // Config range is 0.25..1.0; clamping here keeps a hand-edited file from producing a blank sprite.
+            double scale = Double.isFinite(contentScale) ? Math.max(0.25, Math.min(1.0, contentScale)) : 0.75;
+            int content = Math.max(1, Math.min(SIZE, (int) Math.round(BASE_CONTENT * scale)));
+            if (content == side) return copyCentred(src); // already the right size: no resampling, no blur
 
-            // Premultiplied planes so filtering does not bleed black into soft edges.
-            float[] pr = new float[w * h], pg = new float[w * h], pb = new float[w * h], pa = new float[w * h];
-            for (int y = 0; y < h; y++) {
-                for (int x = 0; x < w; x++) {
-                    int abgr = src.getPixelRGBA(x, y);
-                    float a = (abgr >>> 24) / 255f;
-                    int i = y * w + x;
-                    pa[i] = a;
-                    pr[i] = (abgr & 255) / 255f * a;
-                    pg[i] = ((abgr >> 8) & 255) / 255f * a;
-                    pb[i] = ((abgr >> 16) & 255) / 255f * a;
-                }
-            }
-
-            float scale = (float) MAX_CONTENT / side;
-            float outW = w * scale, outH = h * scale;
+            float k = (float) content / side; // source pixel -> sprite pixel
+            float outW = w * k, outH = h * k;
             float x0 = (SIZE - outW) / 2f, y0 = (SIZE - outH) / 2f;
-            int sub = scale < 1f ? 3 : 1; // downscale: average 3x3 bilinear samples per output pixel
-
-            try (NativeImage out = new NativeImage(NativeImage.Format.RGBA, SIZE, SIZE, true)) {
-                for (int oy = 0; oy < SIZE; oy++) {
-                    for (int ox = 0; ox < SIZE; ox++) {
-                        float r = 0, g = 0, b = 0, a = 0;
-                        for (int sy = 0; sy < sub; sy++) {
-                            for (int sx = 0; sx < sub; sx++) {
-                                float fx = (ox + (sx + 0.5f) / sub - x0) / scale - 0.5f;
-                                float fy = (oy + (sy + 0.5f) / sub - y0) / scale - 0.5f;
-                                int ix = (int) Math.floor(fx), iy = (int) Math.floor(fy);
-                                float tx = fx - ix, ty = fy - iy;
-                                for (int k = 0; k < 4; k++) {
-                                    int px = ix + (k & 1), py = iy + (k >> 1);
-                                    if (px < 0 || py < 0 || px >= w || py >= h) continue; // outside = transparent
-                                    float wt = ((k & 1) == 0 ? 1 - tx : tx) * ((k >> 1) == 0 ? 1 - ty : ty);
-                                    int i = py * w + px;
-                                    r += pr[i] * wt;
-                                    g += pg[i] * wt;
-                                    b += pb[i] * wt;
-                                    a += pa[i] * wt;
-                                }
-                            }
-                        }
-                        float n = sub * sub;
-                        a /= n;
-                        if (a <= 0.002f) continue;
-                        int ai = Math.min(255, Math.round(a * 255f));
-                        int ri = clamp(r / n / a), gi = clamp(g / n / a), bi = clamp(b / n / a);
-                        out.setPixelRGBA(ox, oy, (ai << 24) | (bi << 16) | (gi << 8) | ri);
-                    }
-                }
-                return out.asByteArray();
-            }
+            return k > 1f ? upscaleNearest(src, k, x0, y0) : downscale(src, k, x0, y0);
         } catch (IOException | RuntimeException e) {
             return null;
         }
@@ -98,6 +64,74 @@ final class XaeroSprite {
             for (int y = 0; y < h; y++) {
                 for (int x = 0; x < w; x++) {
                     out.setPixelRGBA(x0 + x, y0 + y, src.getPixelRGBA(x, y));
+                }
+            }
+            return out.asByteArray();
+        }
+    }
+
+    /** Nearest-neighbour: every source pixel becomes a solid block, so the icon stays sharp. */
+    private static byte[] upscaleNearest(NativeImage src, float k, float x0, float y0) throws IOException {
+        int w = src.getWidth(), h = src.getHeight();
+        try (NativeImage out = new NativeImage(NativeImage.Format.RGBA, SIZE, SIZE, true)) {
+            for (int oy = 0; oy < SIZE; oy++) {
+                int sy = (int) Math.floor((oy + 0.5f - y0) / k);
+                if (sy < 0 || sy >= h) continue;
+                for (int ox = 0; ox < SIZE; ox++) {
+                    int sx = (int) Math.floor((ox + 0.5f - x0) / k);
+                    if (sx < 0 || sx >= w) continue;
+                    out.setPixelRGBA(ox, oy, src.getPixelRGBA(sx, sy));
+                }
+            }
+            return out.asByteArray();
+        }
+    }
+
+    private static byte[] downscale(NativeImage src, float k, float x0, float y0) throws IOException {
+        int w = src.getWidth(), h = src.getHeight();
+        // Premultiplied planes so filtering does not bleed black into soft edges.
+        float[] pr = new float[w * h], pg = new float[w * h], pb = new float[w * h], pa = new float[w * h];
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                int abgr = src.getPixelRGBA(x, y);
+                float a = (abgr >>> 24) / 255f;
+                int i = y * w + x;
+                pa[i] = a;
+                pr[i] = (abgr & 255) / 255f * a;
+                pg[i] = ((abgr >> 8) & 255) / 255f * a;
+                pb[i] = ((abgr >> 16) & 255) / 255f * a;
+            }
+        }
+
+        final int sub = 3; // average 3x3 bilinear samples per output pixel
+        try (NativeImage out = new NativeImage(NativeImage.Format.RGBA, SIZE, SIZE, true)) {
+            for (int oy = 0; oy < SIZE; oy++) {
+                for (int ox = 0; ox < SIZE; ox++) {
+                    float r = 0, g = 0, b = 0, a = 0;
+                    for (int sy = 0; sy < sub; sy++) {
+                        for (int sx = 0; sx < sub; sx++) {
+                            float fx = (ox + (sx + 0.5f) / sub - x0) / k - 0.5f;
+                            float fy = (oy + (sy + 0.5f) / sub - y0) / k - 0.5f;
+                            int ix = (int) Math.floor(fx), iy = (int) Math.floor(fy);
+                            float tx = fx - ix, ty = fy - iy;
+                            for (int c = 0; c < 4; c++) {
+                                int px = ix + (c & 1), py = iy + (c >> 1);
+                                if (px < 0 || py < 0 || px >= w || py >= h) continue; // outside = transparent
+                                float wt = ((c & 1) == 0 ? 1 - tx : tx) * ((c >> 1) == 0 ? 1 - ty : ty);
+                                int i = py * w + px;
+                                r += pr[i] * wt;
+                                g += pg[i] * wt;
+                                b += pb[i] * wt;
+                                a += pa[i] * wt;
+                            }
+                        }
+                    }
+                    float n = sub * sub;
+                    a /= n;
+                    if (a <= 0.002f) continue;
+                    int ai = Math.min(255, Math.round(a * 255f));
+                    int ri = clamp(r / n / a), gi = clamp(g / n / a), bi = clamp(b / n / a);
+                    out.setPixelRGBA(ox, oy, (ai << 24) | (bi << 16) | (gi << 8) | ri);
                 }
             }
             return out.asByteArray();
