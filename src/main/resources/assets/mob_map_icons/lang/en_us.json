@@ -1,0 +1,10 @@
+{
+  "mob_map_icons.configuration.iconMode": "Icon mode",
+  "mob_map_icons.configuration.iconMode.FULL_BODY": "Full body",
+  "mob_map_icons.configuration.iconMode.HEAD": "Head only",
+  "mob_map_icons.configuration.iconSize": "Icon size",
+  "mob_map_icons.configuration.ftbChunks": "FTB Chunks icons",
+  "mob_map_icons.configuration.xaero": "Xaero's map icons",
+  "mob_map_icons.configuration.journeymap": "JourneyMap icons",
+  "mob_map_icons.configuration.blacklist": "Blacklisted entity types"
+}

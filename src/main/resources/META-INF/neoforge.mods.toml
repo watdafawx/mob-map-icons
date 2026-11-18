@@ -1,0 +1,62 @@
+modLoader = "javafml"
+loaderVersion = "${loader_version_range}"
+license = "${mod_license}"
+issueTrackerURL = "https://github.com/watdafawx/mob-map-icons/issues"
+
+[[mods]]
+modId = "${mod_id}"
+version = "${mod_version}"
+displayName = "${mod_name}"
+authors = "${mod_authors}"
+description = '''
+Draws real icons for mobs on map mods: instead of a plain dot, every entity gets either its full body
+or just its head, rendered from its own model.
+
+Client-side only. FTB Chunks, Xaero's Minimap, Xaero's World Map and JourneyMap are all optional -
+install any subset and the rest of the mod simply stays dormant.
+'''
+
+# --- Dependencies --------------------------------------------------------------------------------
+
+[[dependencies.${mod_id}]]
+modId = "neoforge"
+type = "required"
+versionRange = "[21.1.0,)"
+ordering = "NONE"
+side = "CLIENT"
+
+[[dependencies.${mod_id}]]
+modId = "minecraft"
+type = "required"
+versionRange = "${minecraft_version_range}"
+ordering = "NONE"
+side = "CLIENT"
+
+[[dependencies.${mod_id}]]
+modId = "ftbchunks"
+type = "optional"
+# Any version: an unsupported FTB Chunks just leaves its adapter off, never a load failure.
+versionRange = "*"
+ordering = "AFTER"
+side = "CLIENT"
+
+[[dependencies.${mod_id}]]
+modId = "xaerominimap"
+type = "optional"
+versionRange = "*"
+ordering = "AFTER"
+side = "CLIENT"
+
+[[dependencies.${mod_id}]]
+modId = "xaeroworldmap"
+type = "optional"
+versionRange = "*"
+ordering = "AFTER"
+side = "CLIENT"
+
+[[dependencies.${mod_id}]]
+modId = "journeymap"
+type = "optional"
+versionRange = "*"
+ordering = "AFTER"
+side = "CLIENT"

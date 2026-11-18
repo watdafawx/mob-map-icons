@@ -1,0 +1,112 @@
+plugins {
+    id 'java'
+    id 'net.neoforged.moddev' version '2.0.146'
+}
+
+version = mod_version
+group = mod_group_id
+
+base {
+    archivesName = mod_id
+}
+
+// Hopper release naming: <modid>-<version>+neoforge-<mc>.jar. project.version stays plain semver.
+tasks.withType(Jar).configureEach {
+    archiveVersion = "${project.version}+neoforge-${minecraft_version}"
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
+}
+
+neoForge {
+    version = neo_version
+
+    parchment {
+        minecraftVersion = parchment_minecraft_version
+        mappingsVersion = parchment_mappings_version
+    }
+
+    // Client-only mod: there is deliberately no server run. Everything this mod does happens on the
+    // client - it draws icons and hands them to a map mod.
+    runs {
+        client {
+            client()
+            gameDirectory = file('run')
+        }
+        configureEach {
+            systemProperty 'forge.logging.markers', 'REGISTRIES'
+            logLevel = org.slf4j.event.Level.DEBUG
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet sourceSets.main
+        }
+    }
+}
+
+repositories {
+    mavenCentral()
+
+    // Map mods resolved from Modrinth's Maven mirror (group "maven.modrinth", artifact = slug,
+    // version = the Modrinth *version id*), like the sibling mods do for their optional deps.
+    // Scoped so nothing else is ever looked up there.
+    maven {
+        url "https://api.modrinth.com/maven"
+        content { includeGroup "maven.modrinth" }
+    }
+}
+
+dependencies {
+    // Nothing is required beyond NeoForge itself: every map mod this talks to is optional, declared
+    // "optional" in neoforge.mods.toml, and reached through a ModList.isLoaded(...) guard. Nothing in
+    // this block may ever become a runtime requirement of the shipped jar.
+    //
+    // Each adapter owns its own compileOnly dependency and adds it in its own marked block, so
+    // several agents can edit this file without fighting over the same lines.
+
+    // === compat:ftbchunks ===
+
+    // === compat:xaero ===
+
+    // === compat:journeymap ===
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 21
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    def expandProps = [
+            mod_id                 : mod_id,
+            mod_name               : mod_name,
+            mod_version            : mod_version,
+            mod_license            : mod_license,
+            mod_authors            : mod_authors,
+            mod_group_id           : mod_group_id,
+            neo_version            : neo_version,
+            minecraft_version      : minecraft_version,
+            minecraft_version_range: minecraft_version_range,
+            loader_version_range   : loader_version_range,
+    ]
+    inputs.properties(expandProps)
+    filesMatching(['META-INF/neoforge.mods.toml', 'pack.mcmeta']) {
+        expand expandProps
+    }
+}
+
+jar {
+    manifest {
+        attributes([
+                'Specification-Title'   : mod_id,
+                'Specification-Vendor'  : mod_authors,
+                'Specification-Version' : '1',
+                'Implementation-Title'  : mod_name,
+                'Implementation-Version': mod_version,
+                'Implementation-Vendor' : mod_authors
+        ])
+    }
+}
