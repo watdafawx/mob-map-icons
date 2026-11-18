@@ -49,7 +49,7 @@ public class MobMapIcons {
     private static void clientSetup(FMLClientSetupEvent event) {
         event.enqueueWork(() -> {
             if (ModList.get().isLoaded(FTB_CHUNKS)) {
-                // TODO(compat:ftbchunks): loadAdapter(FTB_CHUNKS, "dev.watdafawx.mobmapicons.compat.ftbchunks.FtbChunksAdapter");
+                loadAdapter(FTB_CHUNKS, "dev.watdafawx.mobmapicons.compat.ftbchunks.FtbChunksAdapter");
             }
 
             if (ModList.get().isLoaded(XAERO_MINIMAP) || ModList.get().isLoaded(XAERO_WORLD_MAP)) {

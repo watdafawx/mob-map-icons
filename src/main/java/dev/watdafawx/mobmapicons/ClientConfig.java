@@ -32,6 +32,10 @@ public final class ClientConfig {
             .comment("Draw mob icons on FTB Chunks maps.")
             .define("ftbChunks", true);
 
+    public static final ModConfigSpec.BooleanValue TINT_BY_HOSTILITY = BUILDER
+            .comment("Tint hostile mobs' map icons red (FTB Chunks).")
+            .define("tintByHostility", false);
+
     public static final ModConfigSpec.BooleanValue XAERO_ENABLED = BUILDER
             .comment("Draw mob icons on Xaero's Minimap and Xaero's World Map.")
             .define("xaero", true);
@@ -70,6 +74,14 @@ public final class ClientConfig {
             return FTB_CHUNKS_ENABLED.get();
         } catch (IllegalStateException configNotLoadedYet) {
             return true;
+        }
+    }
+
+    public static boolean tintByHostility() {
+        try {
+            return TINT_BY_HOSTILITY.get();
+        } catch (IllegalStateException configNotLoadedYet) {
+            return false;
         }
     }
 
