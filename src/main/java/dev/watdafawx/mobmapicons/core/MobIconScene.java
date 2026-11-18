@@ -198,6 +198,14 @@ final class MobIconScene {
                     net.neoforged.fml.ModList.get().getModContainerById(dev.watdafawx.mobmapicons.MobMapIcons.MODID).orElseThrow(), mc.screen));
             case "log" -> MobMapIcons.LOG.info("scene: {}", arg);
             case "players" -> spawnPlayers(mc);
+            case "opts" -> QuickOptions.toggle();
+            case "bindkey" -> {
+                mc.options.setKey(QuickOptions.KEY, com.mojang.blaze3d.platform.InputConstants.getKey("key.keyboard." + arg));
+                net.minecraft.client.KeyMapping.resetMapping();
+            }
+            case "cfgstyle" -> { dev.watdafawx.mobmapicons.ClientConfig.ICON_STYLE.set(
+                    dev.watdafawx.mobmapicons.api.IconStyle.valueOf(arg.toUpperCase(java.util.Locale.ROOT)));
+                MobIconCache.checkConfig(); }
             case "cfgplayers" -> dev.watdafawx.mobmapicons.ClientConfig.PLAYERS.set(Boolean.parseBoolean(arg));
             case "cfg" -> {
                 boolean on = Boolean.parseBoolean(n.length > 1 ? n[1] : "");

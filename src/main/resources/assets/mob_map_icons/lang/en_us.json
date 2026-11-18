@@ -45,5 +45,19 @@
   "mob_map_icons.configuration.iconStyle.HEAD_PIN": "Head Pin",
   "mob_map_icons.configuration.blacklist.button": "Edit",
   "mob_map_icons.configuration.section.mob.map.icons.client.toml": "Map icons",
-  "mob_map_icons.configuration.section.mob.map.icons.client.toml.title": "Mob Map Icons"
+  "mob_map_icons.configuration.section.mob.map.icons.client.toml.title": "Mob Map Icons",
+  "key.categories.mob_map_icons": "Mob Map Icons",
+  "key.mob_map_icons.options": "Quick options panel",
+  "mob_map_icons.options.title": "Mob Map Icons",
+  "mob_map_icons.options.style": "Style: %s",
+  "mob_map_icons.options.mode": "Mode: %s",
+  "mob_map_icons.options.iconSize": "Icon size: %s",
+  "mob_map_icons.options.rotateWithHeading": "Rotate with heading",
+  "mob_map_icons.options.farmMode": "Farm mode",
+  "mob_map_icons.options.players": "Other players",
+  "mob_map_icons.options.tintByHostility": "Tint hostile red",
+  "mob_map_icons.options.xaeroScale": "Xaero scale: %s",
+  "mob_map_icons.options.maxIcons": "Max icons: %s",
+  "mob_map_icons.options.fullConfig": "Full config",
+  "mob_map_icons.options.close": "Close"
 }
