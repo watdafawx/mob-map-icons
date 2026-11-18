@@ -5,8 +5,8 @@
 # Mob Map Icons
 
 A client-side NeoForge 1.21.1 mod that replaces the little mob heads and coloured dots on your map mod
-with icons rendered from each mob's **real in-game model and texture**. Because the icons are rendered
-from the model at runtime, modded mobs get proper icons too, with no per-mob art needed.
+with icons rendered from each mob's **real in-game model and texture**. The icons are drawn from the
+model at runtime, so modded mobs get proper icons too, with no per-mob art needed.
 
 Works with **FTB Chunks**, **Xaero's Minimap**, **Xaero's World Map** and **JourneyMap**. Every one of
 them is optional: install any subset, and the adapters for the missing ones stay dormant.
@@ -15,18 +15,62 @@ them is optional: install any subset, and the adapters for the missing ones stay
   <img src="docs/screenshots/before-after.png" alt="FTB Chunks large map: default heads on the left, Mob Map Icons on the right" width="900">
 </p>
 
+## Features
+
+- **Real models.** Full body or head, rendered from the mob's own model and texture. Babies, sheep
+  colours, cat and wolf variants, villager professions and slime sizes each get their own icon.
+- **Icons turn with the mob.** Eight facing directions, picked from the mob's heading.
+- **Ten icon styles, switchable live.** Outline (default), badge, retro and more, from the in-game
+  config screen or `/mobmapicons style <name>`. Every style is generated from the game's own render,
+  so it works for modded mobs.
+- **Farm mode.** Crowds of the same mob merge into one icon with a count (`x144`), so a mob farm is
+  readable instead of a blob.
+- **Live config.** Every setting applies without a restart.
+
+<p align="center">
+  <img src="docs/screenshots/heading.png" alt="Icons turn to face the mob's heading" width="700">
+</p>
+
+## Styles
+
+Set `iconStyle` in the config, or run `/mobmapicons style <name>`. Same view, all ten styles:
+
+<p align="center">
+  <img src="docs/screenshots/styles-gallery.png" alt="The ten icon styles on the FTB Chunks large map" width="900">
+</p>
+
+Badge, silhouette and head pin tint by category: hostile red, neutral yellow, water blue, ambient grey,
+otherwise green (from the game's own `Enemy`, `NeutralMob` and `MobCategory`, so modded mobs follow it).
+
+## Farm mode
+
+<p align="center">
+  <img src="docs/screenshots/ftbchunks-farm-off-vs-on.png" alt="FTB Chunks farm mode off and on: 144 cows become one icon" width="800">
+</p>
+
+Same-kind mobs close together merge into one icon. Zoom in and they split again. Named, leashed, tamed
+and boss mobs are never merged. `maxIcons` caps how many icons a map draws (nearest first).
+JourneyMap has no count badge, so there the count is the label (`144 x Cow`) and the duplicates are hidden.
+
+<p align="center">
+  <img src="docs/screenshots/journeymap-farm-off-vs-on.png" alt="JourneyMap farm mode off and on" width="800">
+</p>
+
 ## Screenshots
 
-| FTB Chunks minimap | Xaero's World Map |
+| FTB Chunks minimap | FTB Chunks large map |
 |---|---|
-| <img src="docs/screenshots/ftbchunks-minimap.png" width="380"> | <img src="docs/screenshots/xaero-worldmap.png" width="380"> |
+| <img src="docs/screenshots/ftbchunks-minimap.png" width="380"> | <img src="docs/screenshots/ftbchunks-large-map.png" width="380"> |
 
-| JourneyMap fullscreen | Xaero's Minimap |
+| Xaero's Minimap | Xaero's World Map |
 |---|---|
-| <img src="docs/screenshots/journeymap-fullmap.png" width="380"> | <img src="docs/screenshots/xaero-minimap.png" width="380"> |
+| <img src="docs/screenshots/xaero-minimap.png" width="380"> | <img src="docs/screenshots/xaero-worldmap.png" width="380"> |
 
-More in [`docs/screenshots`](docs/screenshots) (FTB large map, JourneyMap minimap), with the test setup
-in its `README.txt`.
+| JourneyMap minimap | JourneyMap fullscreen |
+|---|---|
+| <img src="docs/screenshots/journeymap-minimap.png" width="380"> | <img src="docs/screenshots/journeymap-fullmap.png" width="380"> |
+
+The test setup and versions are in [`docs/screenshots/README.txt`](docs/screenshots/README.txt).
 
 ## Install
 
@@ -36,65 +80,65 @@ in its `README.txt`.
 
 | Map mod | Tested version | Notes |
 |---|---|---|
-| FTB Chunks | 2101.1.24 | Minimap: set `minimap.large_entities=true` for bigger icons. |
+| FTB Chunks | 2101.1.24 | Heading, variants, farm mode. For bigger minimap icons set `minimap.large_entities=true`. |
 | Xaero's Minimap / World Map | 26.6.0 / 1.47.0 | Set the radar's "Display icons" to **Always** (Xaero's default is "Player List"). |
-| JourneyMap | 6.0.9 | JourneyMap draws mob icons at its own fixed size. |
+| JourneyMap | 6.0.9 | Heading, variants, farm mode. JourneyMap draws mob icons at its own fixed size. |
 
 Other versions may work. An unsupported map mod version just leaves its adapter off; it never stops the
 game from loading.
 
 ## Config
 
-`config/mob_map_icons-client.toml`, or **Mods > Mob Map Icons > Config**. Changes apply live.
+Open **Mods > Mob Map Icons > Config** in game, or edit `config/mob_map_icons-client.toml`.
 
-`/mobmapicons style <name>` switches appearance; `/mobmapicons reload` rebuilds icons.
-Styles consume `iconMode`, except CHIBI (body plus head), HEAD_PIN (head), and TOP_DOWN
-(whole body from above). Category colours: Enemy/MONSTER red, NeutralMob yellow,
-water categories blue, AMBIENT grey, otherwise green. Modded entities follow these rules.
-Previous textures remain during lazy replacement (up to 512 fallback icons).
-`dump` and self-test write `styles.png` (mob rows, enum-order columns), per-style strips,
-and row/column labels in `styles.txt` / `styles-columns.txt`.
+<p align="center">
+  <img src="docs/screenshots/config-screen.png" alt="The in-game config screen" width="600">
+</p>
 
 | Option | Default | What |
 |---|---|---|
 | `iconStyle` | `OUTLINE` | PLAIN, OUTLINE, SILHOUETTE, BADGE, RETRO, TOP_DOWN, CHIBI, PAPER_INK, SHADOW, HEAD_PIN |
-| `iconMode` | `FULL_BODY` | `FULL_BODY` or `HEAD` |
+| `iconMode` | `FULL_BODY` | `FULL_BODY` or `HEAD`. CHIBI, HEAD_PIN and TOP_DOWN choose their own view |
 | `iconSize` | `16` | Icon edge length in pixels (8 to 64) |
 | `rotateWithHeading` | `true` | Turn each icon to face the way the mob is heading (8 directions) |
 | `ftbChunks`, `xaero`, `journeymap` | `true` | Turn an adapter on or off |
-| `farmMode` | `true` | Merge crowds of the same mob into one icon with a count badge (FTB Chunks) |
+| `farmMode` | `true` | Merge crowds of the same mob into one icon (FTB Chunks: count badge; JourneyMap: label) |
 | `clusterRadius`, `clusterMinCount` | `12`, `3` | Merge distance in screen pixels, and the smallest group that merges |
-| `maxIcons` | `150` | Most mob icons per map, nearest first (0 = no limit; FTB Chunks) |
+| `maxIcons` | `150` | Most mob icons per map, nearest first (0 = no limit) |
+| `xaeroScale` | `0.75` | Xaero only: how much of Xaero's icon box the icon fills (0.25 to 1.0). Lower it for smaller icons |
 | `tintByHostility` | `false` | Tint hostile mobs' icons red (FTB Chunks) |
 | `blacklist` | `[]` | Entity type ids that get no icon, e.g. `"minecraft:armor_stand"` |
 
-Commands (client): `/mobmapicons render <entity_type>` and `/mobmapicons dump` write the rendered icons
-as PNGs to `mob_map_icons_dump/` in the game folder (`dump` also writes `contact_sheet.png`).
-`/mobmapicons headings` writes all 8 headings of the mob you look at (or the nearest one) as one sheet.
+Client commands: `/mobmapicons style <name>`, `/mobmapicons reload` (rebuild icons),
+`/mobmapicons render <entity_type>`, `/mobmapicons headings` (all 8 headings of the mob you look at) and
+`/mobmapicons dump` (every cached icon plus contact sheets, written to `mob_map_icons_dump/` in the game folder).
 
 ## How it works
 
-- **Core:** the first time a mob type is seen, it is drawn once offscreen from its real model (a few
-  types per frame, so there is no hitch) and cached as a texture and as PNG bytes. The cache clears on a
-  resource reload and when the icon mode or size changes.
+- **Core:** the first time a mob (variant, heading, style) is seen, it is drawn once offscreen from its
+  real model (at most 2 per frame, so there is no hitch), styled, and cached as a texture and PNG bytes
+  (LRU, 512 icons). The cache clears on a resource reload and when an icon setting changes; the old icon
+  stays on screen until the new one is ready.
 - **FTB Chunks:** the adapter swaps FTB's own entity icons in the map-icon event for ours. FTB's
   filtering, tooltips and hotkeys still apply, and a mob whose icon is not ready yet keeps FTB's head.
-  Icons turn to the mob's heading, and farm mode merges crowds into one icon with a count badge.
 - **Xaero:** a top-priority in-memory resource pack serves Xaero's per-entity icon definitions and
   sprites, so no Mixin is needed. World Map shares the Minimap's radar renderer.
 - **JourneyMap:** a JourneyMap API v2 plugin sets each mob's icon on the radar update event, served from
-  the same in-memory pack.
+  an in-memory pack, padded so wide mobs fit JourneyMap's round marker.
 
 ## Known limitations
 
-- The core renders one icon per variant (baby, colour, profession, size) and per heading, but the map
-  adapters still ask for the per-type icon, so maps show one icon per mob type until they switch.
-- Head mode finds the model's head part. Flying and wide mobs (bats, phantoms, ghasts, the dragon) get
-  the full body instead, and a head facing away shows the back of the body.
+- **Xaero:** icons are per mob type (no baby, colour or heading variants), because Xaero's icon
+  definitions are static per type. Every sheep is white there. Icons are larger than Xaero's own heads;
+  lower `xaeroScale` (0.5 is about Xaero's size).
+- **JourneyMap:** `iconSize` has no visible effect, there is no count badge, and farm-mode labels can
+  overlap on a crowded minimap.
+- Head mode finds the model's head part. Flying and wide mobs (bats, phantoms, ghasts, the dragon) get the
+  full body instead, and a head facing away shows the back of the body.
 - Armour and held items are not drawn. Slime sizes get separate icons that look the same.
 - With `rotateWithHeading` on, long-tailed mobs (cats) look smaller, because every heading shares one frame.
-- JourneyMap: `iconSize` has no visible effect, and wide mobs can spill past the round marker.
-- Xaero: icons are larger than Xaero's heads at low zoom.
+- Variant detection covers the vanilla renderer layers. A mod that draws its own variants in a custom
+  render event may be missed.
 
 ## Building
 
@@ -106,9 +150,9 @@ Output: `build/libs/mob_map_icons-<version>+neoforge-1.21.1.jar`. `build.bat` us
 `toolchain\` or an Eclipse Adoptium JDK 21. Dev runs: `runClient`, `runSelftest` (renders sample mobs
 and dumps PNGs), `runScene` (a map test world; see `build.gradle`).
 
-Layout: `api/` (`MobIconApi`, the only read API), `core/` (renderer, cache, virtual resource pack),
-`compat/<mapmod>/` (one adapter each, loaded by class name only when that mod is present). Each adapter
-owns its `compileOnly` dependency in a marked `// === compat:<name> ===` block in `build.gradle`.
+Layout: `api/` (`MobIconApi`, the only read API), `core/` (renderer, cache, styles, virtual resource
+pack), `compat/<mapmod>/` (one adapter each, loaded by class name only when that mod is present). Each
+adapter owns its `compileOnly` dependency in a marked `// === compat:<name> ===` block in `build.gradle`.
 API notes for each map mod are in [`docs/research`](docs/research).
 
 ## Credits and licence
