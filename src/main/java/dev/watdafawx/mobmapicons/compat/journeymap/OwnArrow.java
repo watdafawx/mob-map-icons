@@ -110,9 +110,59 @@ final class OwnArrow {
         NativeImage bgPixels = back.getPixels();
         bgPixels.fillRect(0, 0, bgPixels.getWidth(), bgPixels.getHeight(), 0);
         back.upload();
+        whiten();
         fg = arrow;
         bg = back;
         writtenHash = hash;
+    }
+
+
+    // ---- JourneyMap multiplies the marker by its "self" colour; white leaves our icon's own colours ----
+
+    private static String origTint;
+
+    private static Object selfColourField() throws ReflectiveOperationException {
+        Object client = Class.forName("journeymap.client.JourneymapClient").getMethod("getInstance").invoke(null);
+        Object core = client.getClass().getMethod("getCoreProperties").invoke(client);
+        return core.getClass().getField("colorSelf").get(core);
+    }
+
+    /** Sets the self colour to white in memory only (never saved by us); remembers the user's value. */
+    private static void whiten() throws ReflectiveOperationException {
+        if (origTint != null) return;
+        Object field = selfColourField();
+        Object cur = field.getClass().getMethod("get").invoke(field);
+        if (!(cur instanceof String s)) return;
+        origTint = s;
+        setTint(field, "#ffffff");
+    }
+
+    private static void unwhiten() {
+        if (origTint == null) return;
+        String back = origTint;
+        origTint = null;
+        try {
+            setTint(selfColourField(), back);
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            MobMapIcons.LOG.debug("JourneyMap self colour not restored", e);
+        }
+    }
+
+    private static void setTint(Object field, String value) throws ReflectiveOperationException {
+        for (Method m : field.getClass().getMethods()) {
+            if (m.getName().equals("set") && m.getParameterCount() == 1 && !m.isBridge()) {
+                m.invoke(field, value);
+                break;
+            }
+        }
+        try {
+            // The minimap reads the colour once in reset(); the fullscreen map reads it every frame.
+            Object ui = Class.forName("journeymap.client.ui.UIManager").getField("INSTANCE").get(null);
+            Object mini = ui.getClass().getMethod("getMinimap").invoke(ui);
+            if (mini != null) mini.getClass().getMethod("reset").invoke(mini);
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            MobMapIcons.LOG.debug("JourneyMap minimap not reset", e);
+        }
     }
 
     private static NativeImage copy(NativeImage src) {
@@ -122,6 +172,7 @@ final class OwnArrow {
     }
 
     private static void restore() {
+        unwhiten();
         if (fg == null || origFg == null) {
             forget();
             return;

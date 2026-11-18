@@ -153,3 +153,28 @@ half .175n, tip r=.335n, edge max(1px,.05n), mob inset .22 (was .10), no upscali
 heading-arrow-tuned.png   rows: JM minimap OUTLINE+BADGE, JM minimap HEAD_PIN+SILHOUETTE, FTB large OUTLINE+HEAD_PIN,
                           FTB large BADGE+SILHOUETTE. Each pair is before | after.
 heading-arrow.png         (replaced) FTB large map OUTLINE, before | after the tuning.
+
+
+Per-map-mod config, own icon, context panel (2026-11-19, branch permod, 0.4.3 unreleased)
+-----------------------------------------------------------------------------------------
+Taken on rig with `runScene` (FTB Chunks 2101.1.24 + JourneyMap 6.0.9 in one run; Xaero 26.6.0 / 1.47.0 in another),
+scene steps `cfg ftb.style OUTLINE`, `cfg journeymap.style BADGE`, `cfg <mod>.own true`, `opts [mod]`, `key`, `click`, `shot`.
+Crops of the real frame, palette-reduced to stay under 200 KB.
+
+permod-ftb-panel.png          Quick options panel over FTB Chunks' large map: opens on the FTB tab, FTB's own
+                              options (large icons, entity heads, player heads) at the bottom.
+permod-jm-panel.png           The panel over JourneyMap's fullscreen map: JM tab, per-mod rows (style badge,
+                              JM marker), JourneyMap's own options (mob heading, show self, mob and self scale).
+permod-xaero-panel.png        The panel over Xaero's World Map: Xaero tab (Xaero scale, no heading rows, no own
+                              icon), and a hint to use Xaero's own settings screen.
+permod-xaero-minimap-panel.png
+                              Panel with no screen open (Xaero minimap run): opens on the Xaero tab.
+permod-style-per-mod.png      Same game, FTB Chunks large map with style OUTLINE (top) and JourneyMap fullscreen with
+                              BADGE (bottom), set through [ftb] and [journeymap].
+permod-ftb-own-outline.png    FTB Chunks large map with ownPlayer on: the large icon at the centre is you
+                              (the tooltip is the mouse hovering the spawn waypoint).
+permod-jm-own-on-vs-off.png   JourneyMap fullscreen: left ownPlayer on (top-down render of you, self colour whitened),
+                              right off (JourneyMap's own blue marker).
+
+Limits: Xaero has no own-icon (its arrow is drawn from code). On JourneyMap the own icon is a fixed top-down view.
+The Xaero radar shows dots in these shots because Xaero's "Display icons" was left at its default.

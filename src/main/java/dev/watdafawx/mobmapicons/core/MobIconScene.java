@@ -126,6 +126,8 @@ final class MobIconScene {
     //   reload                               resource reload (like F3+T)
     //   cfg <ftbChunks|xaero|journeymap|tint|rotate|arrow> <true|false>, cfg mode <HEAD|FULL_BODY>, cfg size <n>,
     //   cfg style <ICON_STYLE>, cfg jmframe <AUTO|ON|OFF>
+    //   cfg <ftb|xaero|journeymap>.<enabled|style|mode|size|own|players|rotate|arrow|frame> <value>  (per map mod)
+    //   opts [ftb|xaero|journeymap|global]  toggle the quick options panel, optionally on a section
     //   log <text>                           echo to the log
     //   players                              (re)spawn the two fake remote players
     //   cfgplayers <true|false>              the `players` config option
@@ -231,8 +233,7 @@ final class MobIconScene {
                         case "mode" -> sec.iconMode.set(dev.watdafawx.mobmapicons.ClientConfig.ModeChoice.valueOf(val.toUpperCase(java.util.Locale.ROOT)));
                         case "size" -> sec.iconSize.set(Integer.parseInt(val));
                         case "own" -> { if (sec.ownPlayer != null) sec.ownPlayer.set(on); }
-                        case "players" -> sec.players.set(dev.watdafawx.mobmapicons.ClientConfig.Tri.valueOf(val.toUpperCase(java.util.Locale.ROOT)));
-                        case "rotate" -> { if (sec.rotateWithHeading != null) sec.rotateWithHeading.set(dev.watdafawx.mobmapicons.ClientConfig.Tri.valueOf(val.toUpperCase(java.util.Locale.ROOT))); }
+                        case "players" -> { if (sec.players != null) sec.players.set(dev.watdafawx.mobmapicons.ClientConfig.Tri.valueOf(val.toUpperCase(java.util.Locale.ROOT))); }                        case "rotate" -> { if (sec.rotateWithHeading != null) sec.rotateWithHeading.set(dev.watdafawx.mobmapicons.ClientConfig.Tri.valueOf(val.toUpperCase(java.util.Locale.ROOT))); }
                         case "arrow" -> { if (sec.headingArrow != null) sec.headingArrow.set(dev.watdafawx.mobmapicons.ClientConfig.Tri.valueOf(val.toUpperCase(java.util.Locale.ROOT))); }
                         case "frame" -> sec.journeymapFrame.set(dev.watdafawx.mobmapicons.ClientConfig.JourneyMapFrame.valueOf(val.toUpperCase(java.util.Locale.ROOT)));
                         default -> MobMapIcons.LOG.warn("scene: unknown cfg {}", key);

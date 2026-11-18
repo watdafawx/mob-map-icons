@@ -307,6 +307,14 @@ public final class QuickOptions {
     /** The map mod whose screen is open (by class name, so no map mod is needed to compile), else the first loaded one. */
     static MapMod detect(Screen screen) {
         String n = screen == null ? "" : screen.getClass().getName();
+        if (n.endsWith(".ScreenWrapper")) {
+            // FTB Library wraps its own GUI (the large map) in a vanilla screen; ask it what it wraps.
+            try {
+                n = screen.getClass().getMethod("getGui").invoke(screen).getClass().getName();
+            } catch (ReflectiveOperationException | RuntimeException ignored) {
+                // keep the wrapper's name
+            }
+        }
         MapMod found = null;
         if (n.startsWith("dev.ftb.mods.ftbchunks.")) found = MapMod.FTB;
         else if (n.startsWith("journeymap.client.ui.")) found = MapMod.JOURNEYMAP;
@@ -356,7 +364,7 @@ public final class QuickOptions {
             if (s.rotateWithHeading != null) rows.add(new Cycle<>("tri.rotateWithHeading", s.rotateWithHeading, ClientConfig.Tri.values()));
             if (s.headingArrow != null) rows.add(new Cycle<>("tri.headingArrow", s.headingArrow, ClientConfig.Tri.values()));
             if (s.farmMode != null) rows.add(new Cycle<>("tri.farmMode", s.farmMode, ClientConfig.Tri.values()));
-            rows.add(new Cycle<>("tri.players", s.players, ClientConfig.Tri.values()));
+            if (s.players != null) rows.add(new Cycle<>("tri.players", s.players, ClientConfig.Tri.values()));
             if (s.ownPlayer != null) rows.add(new Toggle("ownPlayer", s.ownPlayer));
             if (s.xaeroScale != null) rows.add(new DoubleSlider("xaeroScale", s.xaeroScale, 0.25, 1.0, 0.05));
             if (s.journeymapFrame != null) rows.add(new Cycle<>("journeymapFrame", s.journeymapFrame, ClientConfig.JourneyMapFrame.values()));
@@ -555,7 +563,7 @@ public final class QuickOptions {
             s.iconStyle.set(ClientConfig.StyleChoice.INHERIT);
             s.iconMode.set(ClientConfig.ModeChoice.INHERIT);
             s.iconSize.set(0);
-            s.players.set(ClientConfig.Tri.INHERIT);
+            if (s.players != null) s.players.set(ClientConfig.Tri.INHERIT);
             if (s.rotateWithHeading != null) s.rotateWithHeading.set(ClientConfig.Tri.INHERIT);
             if (s.headingArrow != null) s.headingArrow.set(ClientConfig.Tri.INHERIT);
             if (s.farmMode != null) s.farmMode.set(ClientConfig.Tri.INHERIT);

@@ -51,8 +51,48 @@ Bind **Quick options panel** (Controls > Mob Map Icons) or run `/mobmapicons opt
 minimap or any fullscreen map (FTB Chunks, Xaero's World Map, JourneyMap) and every change shows on the map behind it at once.
 Left or right click the Style button to cycle, drag the header to move it, Esc closes it.
 
+The panel knows which map you are on. Opened over FTB Chunks' large map, JourneyMap's fullscreen map or Xaero's World Map
+it shows **that map mod's** section; over the minimap (no screen) it opens on the first installed map mod. A tab bar
+(Global, plus one tab per installed map mod) switches section. A map mod's section has the same rows as the global one, plus
+**All back to global**, and below them a few of the map mod's **own** icon options (FTB Chunks: large icons, entity heads,
+player heads; JourneyMap: mob heading, show self, mob scale, self scale), written through that mod's own setters. Xaero's own
+options are left to its screen. A row that the installed map mod version does not support is simply not shown.
+
 <p align="center">
   <img src="docs/screenshots/options-overlay.png" alt="Quick options panel over the FTB Chunks large map" width="640">
+</p>
+<p align="center">
+  <img src="docs/screenshots/permod-ftb-panel.png" alt="The panel on FTB Chunks' large map, FTB tab" width="400">
+  <img src="docs/screenshots/permod-jm-panel.png" alt="The panel on JourneyMap's fullscreen map, JM tab" width="400">
+</p>
+<p align="center">
+  <img src="docs/screenshots/permod-xaero-panel.png" alt="The panel on Xaero's World Map, Xaero tab" width="400">
+</p>
+
+## One look per map mod
+
+Every installed map mod has its own section in the config (`[ftb]`, `[xaero]`, `[journeymap]`). Each can override the
+style, mode, size, heading rotation, heading arrow, farm mode and other-players option; anything left on `INHERIT`
+(size `0`) follows the global value. So FTB Chunks can show `OUTLINE` icons while JourneyMap shows `BADGE`, at the same time.
+Sections of map mods that are not installed do not exist: no map mod, no section.
+
+<p align="center">
+  <img src="docs/screenshots/permod-style-per-mod.png" alt="FTB Chunks with OUTLINE and JourneyMap with BADGE in the same game" width="420">
+</p>
+
+## Your own icon
+
+`ownPlayer = true` in a map mod's section draws **you** with our icon and replaces that map mod's own marker. It is off by default;
+the global `players` option still means other players only.
+
+- **FTB Chunks:** large map: your player entry is swapped for our icon. Minimap: our icon replaces the face (FTB's pointer arrow stays).
+- **JourneyMap:** minimap and fullscreen map: the marker's two textures are rewritten in place with a top-down render of you
+  (it turns with the camera, so only the top-down view makes sense). While it is on, JourneyMap's "self" colour is set to white in
+  memory so it does not tint the icon blue; your value is put back when you turn it off.
+- **Xaero:** not supported. Xaero draws its arrow from code, and replacing that needs a Mixin; the option is not offered.
+
+<p align="center">
+  <img src="docs/screenshots/permod-jm-own-on-vs-off.png" alt="JourneyMap fullscreen: your marker with ownPlayer on (left) and off (right)" width="400">
 </p>
 
 ## Full body or head
@@ -135,15 +175,32 @@ Open **Mods > Mob Map Icons > Config** in game, or edit `config/mob_map_icons-cl
 | `iconSize` | `16` | Icon edge length in pixels (8 to 64) |
 | `rotateWithHeading` | `false` | Turn each icon to face the way the mob is heading (8 directions). Off: every icon faces you |
 | `headingArrow` | `true` | Small arrow on each icon pointing the way the mob faces (FTB Chunks, JourneyMap). Works with or without `rotateWithHeading` |
-| `ftbChunks`, `xaero`, `journeymap` | `true` | Turn an adapter on or off |
+| `[ftb]`, `[xaero]`, `[journeymap]` | only for installed map mods | Per-map-mod overrides, see below |
 | `farmMode` | `true` | Merge crowds of the same mob into one icon (FTB Chunks: count badge; JourneyMap: label) |
 | `clusterRadius`, `clusterMinCount` | `12`, `3` | Merge distance in screen pixels, and the smallest group that merges |
 | `players` | `true` | Draw other players as their skin's model (FTB Chunks, JourneyMap) |
-| `journeymapFrame` | `AUTO` | JourneyMap only: `AUTO` hides its pin when the style draws its own frame, `ON` always keeps it, `OFF` always hides it |
 | `maxIcons` | `150` | Most mob icons per map, nearest first (0 = no limit) |
-| `xaeroScale` | `0.75` | Xaero only: how much of Xaero's icon box the icon fills (0.25 to 1.0). Lower it for smaller icons |
 | `tintByHostility` | `false` | Tint hostile mobs' icons red (FTB Chunks) |
 | `blacklist` | `[]` | Entity type ids that get no icon, e.g. `"minecraft:armor_stand"` |
+
+### Per-map-mod sections
+
+`[ftb]`, `[xaero]` and `[journeymap]` exist only when that map mod is installed. Every key overrides the global one for that
+map mod only; the default is "inherit".
+
+| Option | Default | What |
+|---|---|---|
+| `enabled` | `true` | Use Mob Map Icons in this map mod (replaces the old flat `ftbChunks`, `xaero`, `journeymap` switches) |
+| `iconStyle` | `INHERIT` | `INHERIT` or any style |
+| `iconMode` | `INHERIT` | `INHERIT`, `FULL_BODY` or `HEAD` |
+| `iconSize` | `0` | `0` = global size, else 8 to 64 |
+| `rotateWithHeading`, `headingArrow`, `farmMode`, `players` | `INHERIT` | `INHERIT`, `ON` or `OFF` (not in `[xaero]`: it has one static icon per mob type and keeps its player heads) |
+| `ownPlayer` | `false` | Draw your own marker with our icon (FTB Chunks, JourneyMap) |
+| `xaeroScale` | `0.75` | `[xaero]` only: how much of Xaero's icon box the icon fills (0.25 to 1.0) |
+| `journeymapFrame` | `AUTO` | `[journeymap]` only: `AUTO` hides its pin when the style draws its own frame, `ON` always keeps it, `OFF` always hides it |
+
+Old config files keep working: the first time they load, the old flat `ftbChunks`, `xaero`, `journeymap`, `xaeroScale` and
+`journeymapFrame` values are read and become the defaults of the new sections.
 
 Client commands: `/mobmapicons options` (quick panel), `/mobmapicons style <name>`, `/mobmapicons reload` (rebuild icons),
 `/mobmapicons render <entity_type>`, `/mobmapicons headings` (all 8 headings of the mob you look at) and
@@ -175,6 +232,7 @@ Client commands: `/mobmapicons options` (quick panel), `/mobmapicons style <name
 - Head mode finds the model's head part. Flying and wide mobs (bats, phantoms, ghasts, the dragon) get the
   full body instead, and a head facing away shows the back of the body.
 - Armour and held items are not drawn. Slime sizes get separate icons that look the same.
+- **Own icon:** off by default; not available for Xaero (its marker is drawn from code). On JourneyMap the icon is a fixed top-down view and JourneyMap's self colour is whitened in memory while it is on.
 - **Heading arrow:** Xaero draws one fixed icon per mob type, so it never shows the arrow. JourneyMap draws its own heading arrow when its "show mob heading" setting is on, and then ours is left out.
 - With `rotateWithHeading` on, long-tailed mobs (cats) look smaller, because every heading shares one frame.
 - Variant detection covers the vanilla renderer layers. A mod that draws its own variants in a custom

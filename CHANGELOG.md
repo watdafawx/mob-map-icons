@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.4.3 (unreleased)
+
+- Per-map-mod config: new `[ftb]`, `[xaero]` and `[journeymap]` sections. Each overrides style, mode, size, rotate
+  with heading, heading arrow, farm mode and other players for that map mod only (default: inherit the global value), so
+  FTB Chunks can show OUTLINE while JourneyMap shows BADGE at the same time. `xaeroScale` moved to `[xaero]`,
+  `journeymapFrame` to `[journeymap]`, and the old flat on/off switches became `enabled` in each section. Old config
+  files are read once and their values become the new defaults.
+- A section exists only for installed map mods, with explicit translation keys; with none installed there are no map-mod sections.
+- `ownPlayer` (off by default, per map mod): draw your own marker with our icon. FTB Chunks large map and minimap (face),
+  JourneyMap minimap and fullscreen map (arrow textures, top-down view). Not available for Xaero.
+- Quick options panel is context-aware: it opens on the section of the map mod whose screen is open, has a tab per
+  installed map mod, an "all back to global" button, and a few of the map mod's own icon options (FTB Chunks large icons,
+  entity heads, player heads; JourneyMap mob heading, show self, mob and self scale).
+- API: `MapMod`, `IconProfile` and per-map-mod `MobIconApi` overloads (`getIcon(entity, MapMod)`, ...). The icon cache is keyed
+  by profile, so different map mods can show different styles at once.
+- Dev harness: `cfg <ftb|xaero|journeymap>.<style|mode|size|own|enabled|...> <value>` and `opts <ftb|xaero|journeymap|global>` scene steps.
+
 ## 0.4.2
 
 - Quick options panel: a key binding (unbound by default) or `/mobmapicons options` opens a small panel over the

@@ -327,7 +327,7 @@ final class MobIconSelfTest {
                 boolean inherit = !s.built ? p.style() == ClientConfig.iconStyle()
                         : s.iconStyle.get() != ClientConfig.StyleChoice.INHERIT || p.style() == ClientConfig.iconStyle();
                 log("  section " + mod.id() + ": built=" + s.built + " loaded=" + ClientConfig.loaded(mod)
-                        + " style=" + p.style() + " mode=" + p.mode() + " size=" + p.size() + " own=" + ClientConfig.ownPlayer(mod));
+                        + " style=" + p.style() + " mode=" + p.mode() + " size=" + p.size() + " own=" + ClientConfig.ownPlayer(mod) + " enabled=" + ClientConfig.enabled(mod) + " xaeroScale=" + ClientConfig.xaeroScale());
                 ok &= inherit && s.built == ClientConfig.loaded(mod);
             } catch (RuntimeException e) {
                 log("  section " + mod.id() + " threw " + e);
