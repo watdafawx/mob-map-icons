@@ -89,9 +89,11 @@ public final class MobIconRenderer {
     /** HEAD crop edge as a multiple of the estimated head size, so ears, horns and snouts fit. */
     private static final float HEAD_MARGIN = 1.4F;
     /** HEAD crop edge as a multiple of the found head's drawn height... */
-    private static final float HEAD_HEIGHT_MARGIN = 1.3F;
+    private static final float HEAD_HEIGHT_MARGIN = 1.55F;
+    /** Share of the HEAD crop edge the crop moves down from the head's centre, to show the shoulders. */
+    private static final float HEAD_SHOULDER_SHIFT = 0.10F;
     /** ...or of its drawn width, whichever is bigger. */
-    private static final float HEAD_WIDTH_MARGIN = 1.1F;
+    private static final float HEAD_WIDTH_MARGIN = 1.3F;
     /** Channel difference above which a pixel counts as changed when diffing head-hidden draws. */
     private static final int DIFF_THRESHOLD = 12;
 
@@ -186,6 +188,9 @@ public final class MobIconRenderer {
                 float w = headRect[2] - headRect[0];
                 float h = headRect[3] - headRect[1];
                 side = Math.max(h * HEAD_HEIGHT_MARGIN, w * HEAD_WIDTH_MARGIN);
+                // Head and shoulders: sit the square a little below the head's centre so the top of the
+                // body comes into frame, like the "head" column of the style mocks.
+                cy -= side * HEAD_SHOULDER_SHIFT;
             } else if (mode == IconMode.HEAD && headCropApplies(entity)) {
                 // No head part to find: a head-sized square around the eyes. The eye height is on the
                 // entity's vertical axis, but heads sit forward of it, so the horizontal centre comes

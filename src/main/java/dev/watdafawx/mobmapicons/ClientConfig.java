@@ -22,7 +22,7 @@ public final class ClientConfig {
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
 
     public static final ModConfigSpec.EnumValue<IconMode> ICON_MODE = BUILDER
-            .comment("What to draw: the whole mob model (FULL_BODY) or just its head (HEAD).")
+            .comment("What to draw: the whole mob model (FULL_BODY) or a head-and-shoulders crop (HEAD). Flying and very wide mobs always show the full body.")
             .translation("mob_map_icons.configuration.iconMode")
             .defineEnum("iconMode", IconMode.FULL_BODY);
 
