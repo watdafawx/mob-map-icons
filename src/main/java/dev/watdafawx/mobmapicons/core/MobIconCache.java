@@ -5,50 +5,69 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import dev.watdafawx.mobmapicons.ClientConfig;
 import dev.watdafawx.mobmapicons.MobMapIcons;
 import dev.watdafawx.mobmapicons.api.IconMode;
+import dev.watdafawx.mobmapicons.api.MobIconApi;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /**
- * One icon per entity type, rendered lazily and reused until the next resource reload or icon config
- * change.
+ * Icons keyed by (entity type, variant, heading bucket), rendered lazily and reused until evicted,
+ * the next resource reload or an icon config change.
  *
- * <p>Map mods ask for the same handful of types hundreds of times a second, from whatever thread
- * they draw on, so a lookup is one concurrent map read. A miss queues the type and returns
- * {@code null}; the queue is drained on the render thread at the start of each frame, at most
- * {@link #RENDERS_PER_FRAME} types per frame, so opening a map with fifty new mob types costs a few
- * frames of a few milliseconds instead of one long hitch.
+ * <p>Map mods ask for the same handful of mobs hundreds of times a second, from whatever thread they
+ * draw on, so a lookup is one short synchronized map read. A miss queues the key (with the entity to
+ * copy the look from) and returns {@code null}; the queue is drained on the render thread at the
+ * start of each frame, at most {@link #RENDERS_PER_FRAME} icons per frame, so opening a map with fifty
+ * new mobs costs a few frames of a few milliseconds instead of one long hitch.
  *
- * <p>A type whose instance cannot be made (players, projectiles that need constructor arguments,
+ * <p>The cache holds at most {@link #MAX_ENTRIES} icons (pending and failed ones included); the least
+ * recently looked-up one is dropped first and its texture freed on the render thread. Every built
+ * icon gets its own texture id, so freeing an old one can never hit a newer one.
+ *
+ * <p>A key whose entity cannot be made (players, projectiles that need constructor arguments,
  * {@code create} returning null or throwing) or that draws nothing is cached as a failure and is not
- * retried until {@link #invalidateAll()}.
+ * retried until it is evicted or {@link #invalidateAll()} runs.
  */
 public final class MobIconCache {
 
-    /** Most types rendered in one frame; the rest wait for the next. */
+    /** Most icons rendered in one frame; the rest wait for the next. */
     public static final int RENDERS_PER_FRAME = 2;
+    /** Most icons kept at once. */
+    public static final int MAX_ENTRIES = 512;
+    /** Most heading frames (one per variant) kept at once. Render thread only. */
+    private static final int MAX_FRAMES = 256;
+    private static final String RESOURCE_PREFIX = "textures/mob_map_icons/";
 
     public enum State { PENDING, READY, FAILED }
 
-    /** One cached icon. Immutable once published; READY entries own their texture. */
-    public record Entry(State state, @Nullable ResourceLocation texture, byte @Nullable [] png) {
-        static final Entry PENDING = new Entry(State.PENDING, null, null);
-        static final Entry FAILED = new Entry(State.FAILED, null, null);
+    /**
+     * One cached icon. Immutable once published; READY entries own their texture.
+     *
+     * @param resource the resource-pack location serving {@code png}, for resource-based map mods
+     */
+    public record Entry(State state, @Nullable ResourceLocation texture, byte @Nullable [] png,
+                        @Nullable ResourceLocation resource) {
+        static final Entry PENDING = new Entry(State.PENDING, null, null, null);
+        static final Entry FAILED = new Entry(State.FAILED, null, null, null);
 
         public boolean ready() {
             return state == State.READY;
@@ -59,80 +78,208 @@ public final class MobIconCache {
         }
     }
 
-    private static final Map<EntityType<?>, Entry> ENTRIES = new ConcurrentHashMap<>();
-    private static final ConcurrentLinkedDeque<EntityType<?>> QUEUE = new ConcurrentLinkedDeque<>();
-    private static final Map<EntityType<?>, List<Consumer<Entry>>> CALLBACKS = new ConcurrentHashMap<>();
+    /**
+     * What an icon is of. {@code variant == null} is the type's default look (a fresh instance),
+     * which the {@link EntityType} lookups use.
+     */
+    record Key(EntityType<?> type, @Nullable IconVariant variant, int bucket) {
+        ResourceLocation typeId() {
+            return BuiltInRegistries.ENTITY_TYPE.getKey(type);
+        }
+
+        /** File name stem for dumps, e.g. {@code sheep__sheep_red_b0}; the type default is just {@code sheep}. */
+        String fileStem() {
+            String base = typeId().getPath();
+            return variant == null && bucket == 0 ? base
+                    : base + "__" + (variant == null ? "default" : variant.label()) + "_b" + bucket;
+        }
+    }
+
+    private record Request(Key key, @Nullable Entity source) {}
+
+    private record FrameKey(EntityType<?> type, @Nullable IconVariant variant) {}
+
+    private static final Object LOCK = new Object();
+    /** Access-ordered: the eldest entry is the least recently looked up. Guarded by {@link #LOCK}. */
+    private static final LinkedHashMap<Key, Entry> ENTRIES = new LinkedHashMap<>(64, 0.75F, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<Key, Entry> eldest) {
+            if (size() <= MAX_ENTRIES) return false;
+            EVICTED.add(eldest.getValue());
+            return true;
+        }
+    };
+    /** Entries dropped from the cache whose textures still need freeing on the render thread. */
+    private static final ConcurrentLinkedQueue<Entry> EVICTED = new ConcurrentLinkedQueue<>();
+    /** Resource path (without namespace) of every ready icon, for the virtual resource pack. */
+    private static final Map<String, Key> RESOURCES = new ConcurrentHashMap<>();
+    private static final ConcurrentLinkedDeque<Request> QUEUE = new ConcurrentLinkedDeque<>();
+    private static final Map<Key, List<Consumer<Entry>>> CALLBACKS = new ConcurrentHashMap<>();
     /** One-off render-thread jobs (commands, self-test), run in the same frame slot as icon renders. */
     private static final ConcurrentLinkedQueue<Runnable> FRAME_JOBS = new ConcurrentLinkedQueue<>();
+    /** Heading frames per variant. Render thread only. */
+    private static final LinkedHashMap<FrameKey, MobIconRenderer.Frame> FRAMES = new LinkedHashMap<>(64, 0.75F, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<FrameKey, MobIconRenderer.Frame> eldest) {
+            return size() > MAX_FRAMES;
+        }
+    };
 
-    /** Config the cached icons were rendered with; a change throws them all away. */
+    /** Config the cached icons were rendered with; a change throws them all away. Render thread. */
     private static IconMode renderedMode = null;
     private static int renderedSize = -1;
+    private static boolean renderedRotate;
+    /** Bumped whenever every icon is thrown away; part of variant resource paths. */
+    private static volatile int generation;
+    /** Makes every built texture id unique. Render thread. */
+    private static int textureSerial;
 
     private MobIconCache() {}
 
     // ---------------------------------------------------------------------------------------------
     // Lookups (any thread)
 
-    /** The ready icon's texture id, or {@code null} (pending, failed or blacklisted). Queues a miss. */
+    /** The type's default icon texture id, or {@code null} (pending, failed or blacklisted). Queues a miss. */
     @Nullable
     public static ResourceLocation getIcon(EntityType<?> type) {
         if (isBlacklisted(type)) return null;
-        Entry entry = ENTRIES.get(type);
-        if (entry == null) {
-            request(type);
-            return null;
-        }
-        return entry.texture();
+        return lookup(new Key(type, null, 0), null).texture();
     }
 
     public static boolean isReady(EntityType<?> type) {
-        Entry entry = ENTRIES.get(type);
-        return entry != null && entry.ready() && !isBlacklisted(type);
+        return !isBlacklisted(type) && peek(new Key(type, null, 0)).ready();
     }
 
-    /** {@code true} once a type has been tried and cannot get an icon. */
+    /** {@code true} once a type's default icon has been tried and cannot be made. */
     public static boolean isFailed(EntityType<?> type) {
-        Entry entry = ENTRIES.get(type);
-        return entry != null && entry.failed();
+        return peek(new Key(type, null, 0)).failed();
     }
 
-    /** PNG bytes of the ready icon, or {@code null}. Does not queue a render. */
+    /** PNG bytes of the type's ready default icon, or {@code null}. Does not queue a render. */
     public static byte @Nullable [] getPng(EntityType<?> type) {
         if (isBlacklisted(type)) return null;
-        Entry entry = ENTRIES.get(type);
-        return entry == null ? null : entry.png();
+        return peek(new Key(type, null, 0)).png();
     }
 
-    /** Texture id an entity type's icon is registered under, ready or not. */
-    public static ResourceLocation textureId(EntityType<?> type) {
-        ResourceLocation key = BuiltInRegistries.ENTITY_TYPE.getKey(type);
-        return ResourceLocation.fromNamespaceAndPath(MobMapIcons.MODID, "icons/" + key.getNamespace() + "/" + key.getPath());
+    /** Resource location of the type's default icon, or {@code null}. Queues a miss. */
+    @Nullable
+    public static ResourceLocation getResourceIcon(EntityType<?> type) {
+        if (isBlacklisted(type)) return null;
+        return lookup(new Key(type, null, 0), null).resource();
+    }
+
+    /** Texture id of the best icon for this entity and bucket (exact or stand-in), or {@code null}. Queues a miss. */
+    @Nullable
+    public static ResourceLocation getIcon(Entity entity, int bucket) {
+        return best(entity, bucket, true).texture();
+    }
+
+    /** PNG of what {@link #getIcon(Entity, int)} would return. Does not queue. */
+    public static byte @Nullable [] getPng(Entity entity, int bucket) {
+        return best(entity, bucket, false).png();
+    }
+
+    /** Resource location of what {@link #getIcon(Entity, int)} would return. Queues a miss. */
+    @Nullable
+    public static ResourceLocation getResourceIcon(Entity entity, int bucket) {
+        return best(entity, bucket, true).resource();
+    }
+
+    /** {@code true} when the exact icon for this entity and bucket is ready (no stand-in). Does not queue. */
+    public static boolean isExactReady(Entity entity, int bucket) {
+        Key key = keyOf(entity, bucket);
+        return key != null && peek(key).ready();
+    }
+
+    /** {@code true} when the exact icon for this entity and bucket has been tried and cannot be made. */
+    public static boolean isExactFailed(Entity entity, int bucket) {
+        Key key = keyOf(entity, bucket);
+        return key == null || peek(key).failed();
+    }
+
+    /** PNG bytes for a resource path served by the virtual pack ({@code textures/mob_map_icons/...}). */
+    static byte @Nullable [] pngForResource(String path) {
+        Key key = RESOURCES.get(path);
+        if (key == null || isBlacklisted(key.type())) return null;
+        return peek(key).png();
+    }
+
+    /** Every resource path the virtual pack currently serves. */
+    static List<String> resourcePaths() {
+        return new ArrayList<>(RESOURCES.keySet());
+    }
+
+    @Nullable
+    private static Key keyOf(Entity entity, int bucket) {
+        EntityType<?> type = entity.getType();
+        if (isBlacklisted(type)) return null;
+        return new Key(type, IconVariant.of(entity), Math.floorMod(bucket, MobIconApi.YAW_BUCKETS));
+    }
+
+    /**
+     * The exact entry if ready, otherwise the nearest ready bucket of the same variant, otherwise the
+     * ready type default; {@link Entry#PENDING}-like (all null) when there is none.
+     */
+    private static Entry best(Entity entity, int bucket, boolean queue) {
+        Key key = keyOf(entity, bucket);
+        if (key == null) return Entry.FAILED;
+        Entry exact = queue ? lookup(key, entity) : peek(key);
+        if (exact.ready()) return exact;
+        synchronized (LOCK) {
+            for (int d = 1; d <= MobIconApi.YAW_BUCKETS / 2; d++) {
+                for (int sign = -1; sign <= 1; sign += 2) {
+                    Entry e = ENTRIES.get(new Key(key.type(), key.variant(), Math.floorMod(key.bucket() + sign * d, MobIconApi.YAW_BUCKETS)));
+                    if (e != null && e.ready()) return e;
+                }
+            }
+            Entry type = ENTRIES.get(new Key(key.type(), null, 0));
+            if (type != null && type.ready()) return type;
+        }
+        return Entry.PENDING;
+    }
+
+    /** The entry for {@code key}; queues a render (copying {@code source}'s look) when there is none. */
+    private static Entry lookup(Key key, @Nullable Entity source) {
+        synchronized (LOCK) {
+            Entry entry = ENTRIES.get(key);
+            if (entry != null) return entry;
+            ENTRIES.put(key, Entry.PENDING);
+        }
+        QUEUE.addLast(new Request(key, source));
+        return Entry.PENDING;
+    }
+
+    /** The entry for {@code key} without queueing; {@link Entry#PENDING} when unknown. */
+    private static Entry peek(Key key) {
+        synchronized (LOCK) {
+            Entry entry = ENTRIES.get(key);
+            return entry == null ? Entry.PENDING : entry;
+        }
     }
 
     private static boolean isBlacklisted(EntityType<?> type) {
         return ClientConfig.isBlacklisted(BuiltInRegistries.ENTITY_TYPE.getKey(type));
     }
 
-    private static void request(EntityType<?> type) {
-        if (ENTRIES.putIfAbsent(type, Entry.PENDING) == null) QUEUE.addLast(type);
-    }
-
     // ---------------------------------------------------------------------------------------------
     // Control
 
     /**
-     * Drops this type's icon and renders it again ahead of the queue, then hands the new entry to
-     * {@code done} on the render thread. Ignores the blacklist: it is an explicit request.
+     * Drops this type's default icon and renders it again ahead of the queue, then hands the new
+     * entry to {@code done} on the render thread. Ignores the blacklist: it is an explicit request.
      */
     public static void rerender(EntityType<?> type, @Nullable Consumer<Entry> done) {
         onRenderThread(() -> {
-            Entry old = ENTRIES.remove(type);
+            Key key = new Key(type, null, 0);
+            Entry old;
+            synchronized (LOCK) {
+                old = ENTRIES.remove(key);
+                ENTRIES.put(key, Entry.PENDING);
+            }
             release(old);
-            QUEUE.remove(type);
-            if (done != null) CALLBACKS.computeIfAbsent(type, t -> new ArrayList<>()).add(done);
-            ENTRIES.put(type, Entry.PENDING);
-            QUEUE.addFirst(type);
+            QUEUE.removeIf(r -> r.key().equals(key));
+            if (done != null) CALLBACKS.computeIfAbsent(key, k -> new ArrayList<>()).add(done);
+            QUEUE.addFirst(new Request(key, null));
         });
     }
 
@@ -143,31 +290,68 @@ public final class MobIconCache {
 
     /**
      * Forgets every icon and frees its texture; the next lookups render them again. Call on resource
-     * reload and whenever iconMode or iconSize changes (the cache also notices those by itself).
-     * Safe from any thread.
+     * reload and whenever iconMode, iconSize or rotateWithHeading changes (the cache also notices
+     * those by itself). Safe from any thread.
      */
     public static void invalidateAll() {
         onRenderThread(() -> {
-            QUEUE.clear();
-            for (Entry entry : ENTRIES.values()) release(entry);
-            ENTRIES.clear();
-            // Pending callbacks get a failure rather than hanging forever.
-            CALLBACKS.values().forEach(list -> list.forEach(cb -> cb.accept(Entry.FAILED)));
-            CALLBACKS.clear();
+            clearAll();
             MobIconRenderer.close();
         });
     }
 
-    /** Writes every ready icon to {@code dir/<namespace>/<path>.png}. Returns how many were written. */
-    public static int dumpAll(Path dir) throws IOException {
-        int written = 0;
-        for (Map.Entry<EntityType<?>, Entry> e : ENTRIES.entrySet()) {
-            byte[] png = e.getValue().png();
-            if (png == null) continue;
-            writePng(dir, BuiltInRegistries.ENTITY_TYPE.getKey(e.getKey()), "", png);
-            written++;
+    private static void clearAll() {
+        QUEUE.clear();
+        List<Entry> old;
+        synchronized (LOCK) {
+            old = new ArrayList<>(ENTRIES.values());
+            ENTRIES.clear();
         }
-        return written;
+        old.forEach(MobIconCache::release);
+        RESOURCES.clear();
+        FRAMES.clear();
+        generation++;
+        // Pending callbacks get a failure rather than hanging forever.
+        CALLBACKS.values().forEach(list -> list.forEach(cb -> cb.accept(Entry.FAILED)));
+        CALLBACKS.clear();
+    }
+
+    /** Every ready icon as (file stem relative to the dump dir, PNG), sorted by type then stem. */
+    static void forEachReady(BiConsumer<Path, byte[]> out) {
+        List<Map.Entry<Key, Entry>> ready = new ArrayList<>();
+        synchronized (LOCK) {
+            for (Map.Entry<Key, Entry> e : ENTRIES.entrySet()) {
+                if (e.getValue().png() != null) ready.add(Map.entry(e.getKey(), e.getValue()));
+            }
+        }
+        ready.sort(Comparator.comparing((Map.Entry<Key, Entry> e) -> e.getKey().typeId().toString())
+                .thenComparing(e -> e.getKey().fileStem()));
+        for (var e : ready) {
+            out.accept(Path.of(e.getKey().typeId().getNamespace(), e.getKey().fileStem()), e.getValue().png());
+        }
+    }
+
+    /**
+     * Writes every ready icon to {@code dir/<namespace>/<stem>.png} plus {@code contact_sheet.png}
+     * (all of them in one image, listed in {@code contact_sheet.txt}). Returns how many were written.
+     */
+    public static int dumpAll(Path dir) throws IOException {
+        List<String> names = new ArrayList<>();
+        List<byte[]> pngs = new ArrayList<>();
+        forEachReady((stem, png) -> {
+            names.add(stem.toString().replace('\\', '/'));
+            pngs.add(png);
+        });
+        for (int i = 0; i < names.size(); i++) {
+            Path file = dir.resolve(names.get(i) + ".png");
+            Files.createDirectories(file.getParent());
+            Files.write(file, pngs.get(i));
+        }
+        if (!pngs.isEmpty()) {
+            ContactSheet.write(dir.resolve("contact_sheet.png"), ContactSheet.decode(pngs), 8, 2);
+            Files.write(dir.resolve("contact_sheet.txt"), names);
+        }
+        return names.size();
     }
 
     /** Writes one PNG to {@code dir/<namespace>/<path><suffix>.png} and returns the file. */
@@ -183,25 +367,31 @@ public final class MobIconCache {
 
     /** Start-of-frame hook: applies config changes, runs jobs, renders up to the per-frame budget. */
     public static void onFrameStart() {
+        Entry evicted;
+        while ((evicted = EVICTED.poll()) != null) {
+            release(evicted);
+            // Stop serving it, unless the same key was rebuilt (same path) since.
+            if (evicted.resource() != null) {
+                RESOURCES.computeIfPresent(evicted.resource().getPath(), (path, k) -> peek(k).ready() ? k : null);
+            }
+        }
+
         Minecraft mc = Minecraft.getInstance();
         // Needs a level to make entities in, a camera the renderers can read, and no reload in flight.
         if (mc.level == null || mc.getEntityRenderDispatcher().camera == null || mc.getOverlay() != null) return;
 
         IconMode mode = ClientConfig.iconMode();
         int size = ClientConfig.iconSize();
-        if (mode != renderedMode || size != renderedSize) {
+        boolean rotate = ClientConfig.rotateWithHeading();
+        if (mode != renderedMode || size != renderedSize || rotate != renderedRotate) {
             if (renderedMode != null) {
-                MobMapIcons.LOG.info("Icon config changed ({} {}px -> {} {}px); re-rendering icons",
-                        renderedMode, renderedSize, mode, size);
-                // Keep what was asked for, so maps don't flicker to "no icon" for longer than needed.
-                List<EntityType<?>> wanted = new ArrayList<>(ENTRIES.keySet());
-                for (Entry entry : ENTRIES.values()) release(entry);
-                ENTRIES.clear();
-                QUEUE.clear();
-                wanted.forEach(MobIconCache::request);
+                MobMapIcons.LOG.info("Icon config changed ({} {}px rotate={} -> {} {}px rotate={}); re-rendering icons",
+                        renderedMode, renderedSize, renderedRotate, mode, size, rotate);
+                clearAll();
             }
             renderedMode = mode;
             renderedSize = size;
+            renderedRotate = rotate;
         }
 
         Runnable job;
@@ -214,60 +404,116 @@ public final class MobIconCache {
         }
 
         for (int i = 0; i < RENDERS_PER_FRAME; i++) {
-            EntityType<?> type = QUEUE.pollFirst();
-            if (type == null) break;
-            Entry entry = build(type, mode, size * 2);
-            ENTRIES.put(type, entry);
-            List<Consumer<Entry>> callbacks = CALLBACKS.remove(type);
+            Request request = QUEUE.pollFirst();
+            if (request == null) break;
+            Key key = request.key();
+            if (peek(key).state() != State.PENDING) { i--; continue; } // a duplicate; already built
+            Entry entry = build(key, request.source(), mode, size * 2, rotate);
+            synchronized (LOCK) {
+                ENTRIES.put(key, entry);
+            }
+            if (entry.resource() != null) RESOURCES.put(entry.resource().getPath(), key);
+            List<Consumer<Entry>> callbacks = CALLBACKS.remove(key);
             if (callbacks != null) callbacks.forEach(cb -> cb.accept(entry));
         }
     }
 
-    private static Entry build(EntityType<?> type, IconMode mode, int outSize) {
-        ResourceLocation key = BuiltInRegistries.ENTITY_TYPE.getKey(type);
+    private static Entry build(Key key, @Nullable Entity source, IconMode mode, int outSize, boolean rotate) {
+        ResourceLocation typeId = key.typeId();
         Minecraft mc = Minecraft.getInstance();
-        Entity entity;
-        try {
-            entity = type.create(mc.level);
-        } catch (Throwable t) {
-            MobMapIcons.LOG.debug("No icon for {}: could not create an instance ({})", key, t.toString());
-            return Entry.FAILED;
-        }
+        Entity entity = makeCopy(key.type(), key.variant() == null ? null : source);
         if (entity == null) {
-            MobMapIcons.LOG.debug("No icon for {}: EntityType.create returned null", key);
+            MobMapIcons.LOG.debug("No icon for {}: could not create an instance", typeId);
             return Entry.FAILED;
         }
 
         NativeImage image = null;
         try {
-            image = MobIconRenderer.render(entity, mode, outSize);
+            MobIconRenderer.Frame frame = null;
+            if (rotate && (mode == IconMode.FULL_BODY || !MobIconRenderer.headCropApplies(entity))) {
+                FrameKey fk = new FrameKey(key.type(), key.variant());
+                frame = FRAMES.get(fk);
+                if (frame == null) {
+                    frame = MobIconRenderer.measureFrame(entity, outSize);
+                    if (frame != null) FRAMES.put(fk, frame);
+                    MobMapIcons.LOG.debug("Heading frame for {} {}: {} (bb {}x{})", typeId,
+                            key.variant() == null ? "default" : key.variant().label(), frame,
+                            entity.getBbWidth(), entity.getBbHeight());
+                }
+            }
+            image = MobIconRenderer.render(entity, mode, outSize, key.bucket(), frame);
             if (image == null) {
-                MobMapIcons.LOG.debug("No icon for {}: it draws nothing", key);
+                MobMapIcons.LOG.debug("No icon for {}: it draws nothing", typeId);
                 return Entry.FAILED;
             }
             byte[] png = image.asByteArray();
-            ResourceLocation id = textureId(type);
+            ResourceLocation id = ResourceLocation.fromNamespaceAndPath(MobMapIcons.MODID, "icons/"
+                    + typeId.getNamespace() + "/" + typeId.getPath() + "/"
+                    + (key.variant() == null ? "default" : key.variant().hash()) + "_" + key.bucket() + "_" + (textureSerial++));
             DynamicTexture texture = new DynamicTexture(image); // takes ownership of image
             image = null;
             mc.getTextureManager().register(id, texture);
-            return new Entry(State.READY, id, png);
+            return new Entry(State.READY, id, png, resourceLocation(key));
         } catch (Throwable t) {
-            MobMapIcons.LOG.warn("No icon for {}: rendering it failed", key, t);
+            MobMapIcons.LOG.warn("No icon for {}: rendering it failed", typeId, t);
             return Entry.FAILED;
         } finally {
             if (image != null) image.close();
-            try {
-                entity.discard();
-            } catch (Throwable ignored) {
-                // Never in a level; a modded remove() hook failing here changes nothing.
-            }
+            IconVariant.discard(entity);
         }
     }
 
-    /** Builds an icon image for an arbitrary instance (e.g. a baby), outside the cache. Render thread. */
+    /** Resource-pack location of a key's icon; the type default keeps the 0.1.0 path. */
+    private static ResourceLocation resourceLocation(Key key) {
+        ResourceLocation typeId = key.typeId();
+        String path = RESOURCE_PREFIX + typeId.getNamespace() + "/" + typeId.getPath();
+        if (key.variant() != null || key.bucket() != 0) {
+            path += "/" + (key.variant() == null ? "default" : key.variant().hash()) + "_" + key.bucket() + "_g" + generation;
+        }
+        return ResourceLocation.fromNamespaceAndPath(MobMapIcons.MODID, path + ".png");
+    }
+
+    /**
+     * The instance to draw: a copy of {@code source}'s look placed at its position, or a fresh
+     * instance of {@code type} at the player's position. Never added to the level. Render thread.
+     */
     @Nullable
-    public static NativeImage renderOnce(Entity entity, IconMode mode, int outSize) {
-        return MobIconRenderer.render(entity, mode, outSize);
+    static Entity makeCopy(EntityType<?> type, @Nullable Entity source) {
+        Entity copy = source == null ? null : IconVariant.copyOf(source);
+        Vec3 at;
+        if (copy != null) {
+            at = source.position();
+        } else {
+            if (source != null) MobMapIcons.LOG.debug("Icon of {} falls back to the type's default look", source);
+            copy = IconVariant.fresh(type);
+            if (copy == null) return null;
+            Minecraft mc = Minecraft.getInstance();
+            at = mc.player != null ? mc.player.position() : mc.gameRenderer.getMainCamera().getPosition();
+        }
+        copy.moveTo(at.x, at.y, at.z, 0.0F, 0.0F);
+        return copy;
+    }
+
+    /**
+     * Renders {@code source}'s look (or {@code type}'s default when {@code source} is null) outside the
+     * cache, e.g. for the self-test and commands. Render thread.
+     *
+     * @param sharedFrame use the rotation-independent scale, as the cache does with rotateWithHeading on
+     */
+    @Nullable
+    public static NativeImage renderOnce(EntityType<?> type, @Nullable Entity source, IconMode mode, int outSize,
+                                         int bucket, boolean sharedFrame) {
+        Entity entity = makeCopy(type, source);
+        if (entity == null) return null;
+        try {
+            MobIconRenderer.Frame frame = null;
+            if (sharedFrame && (mode == IconMode.FULL_BODY || !MobIconRenderer.headCropApplies(entity))) {
+                frame = MobIconRenderer.measureFrame(entity, outSize);
+            }
+            return MobIconRenderer.render(entity, mode, outSize, bucket, frame);
+        } finally {
+            IconVariant.discard(entity);
+        }
     }
 
     private static void release(@Nullable Entry entry) {

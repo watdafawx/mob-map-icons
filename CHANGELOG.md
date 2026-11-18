@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.2.0
+
+- Icons per variant: babies, sheep colours, villager type and profession, cat/wolf/horse/fish
+  variants, collars, charged creepers and sizes (slimes, scaled mobs) each get their own icon. The
+  per-type icon stays as the fallback.
+- Headings: `MobIconApi.getIcon(Entity, yawBucket)` gives 8 rotated icons per variant, rendered on
+  demand; `MobIconApi.yawBucket(float)` maps a yaw to a bucket. New config `rotateWithHeading`
+  (default on) tells map adapters whether to use them.
+- Head mode crops around the model's head part instead of the top of the model. Flying and wide mobs
+  fall back to the full body.
+- The icon is drawn from a throwaway copy posed where the real mob (or the player) is, at full
+  brightness; the real entity is never touched. Name tags no longer leak into icons.
+- Cache is an LRU of 512 icons, still at most 2 renders per frame.
+- `/mobmapicons headings` and a contact sheet in `/mobmapicons dump`. The self-test covers variants,
+  headings and head crops.
+
 ## 0.1.0
 
 - First version. Renders each mob type's real model and texture to an icon (full body or head) and

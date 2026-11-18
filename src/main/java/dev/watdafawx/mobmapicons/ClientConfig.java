@@ -28,6 +28,11 @@ public final class ClientConfig {
             .comment("Icon edge length in pixels, before the map mod scales it.")
             .defineInRange("iconSize", DEFAULT_ICON_SIZE, 8, 64);
 
+    public static final ModConfigSpec.BooleanValue ROTATE_WITH_HEADING = BUILDER
+            .comment("Turn each mob's icon to face the way the mob is heading on the map (8 directions,",
+                    "rendered on demand). Off: every icon faces the viewer. Map adapters read this.")
+            .define("rotateWithHeading", true);
+
     public static final ModConfigSpec.BooleanValue FTB_CHUNKS_ENABLED = BUILDER
             .comment("Draw mob icons on FTB Chunks maps.")
             .define("ftbChunks", true);
@@ -66,6 +71,14 @@ public final class ClientConfig {
             return ICON_SIZE.get();
         } catch (IllegalStateException configNotLoadedYet) {
             return DEFAULT_ICON_SIZE;
+        }
+    }
+
+    public static boolean rotateWithHeading() {
+        try {
+            return ROTATE_WITH_HEADING.get();
+        } catch (IllegalStateException configNotLoadedYet) {
+            return true;
         }
     }
 

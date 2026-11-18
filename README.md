@@ -51,12 +51,14 @@ game from loading.
 |---|---|---|
 | `iconMode` | `FULL_BODY` | `FULL_BODY` or `HEAD` |
 | `iconSize` | `16` | Icon edge length in pixels (8 to 64) |
+| `rotateWithHeading` | `true` | Turn each icon to face the way the mob is heading (8 directions) |
 | `ftbChunks`, `xaero`, `journeymap` | `true` | Turn an adapter on or off |
 | `tintByHostility` | `false` | Tint hostile mobs' icons red (FTB Chunks) |
 | `blacklist` | `[]` | Entity type ids that get no icon, e.g. `"minecraft:armor_stand"` |
 
 Commands (client): `/mobmapicons render <entity_type>` and `/mobmapicons dump` write the rendered icons
-as PNGs to `mob_map_icons_dump/` in the game folder.
+as PNGs to `mob_map_icons_dump/` in the game folder (`dump` also writes `contact_sheet.png`).
+`/mobmapicons headings` writes all 8 headings of the mob you look at (or the nearest one) as one sheet.
 
 ## How it works
 
@@ -72,10 +74,12 @@ as PNGs to `mob_map_icons_dump/` in the game folder.
 
 ## Known limitations
 
-- One icon per mob type: a baby cow shows the adult icon, and variants (colours, sizes) are not separate.
-- Head mode crops the top part of the model, which suits upright mobs. Dragons and bats mostly show wings.
-- Some mobs whose renderer reads their position in the world may render slightly wrong, because the
-  throwaway entity is posed far below the world.
+- The core renders one icon per variant (baby, colour, profession, size) and per heading, but the map
+  adapters still ask for the per-type icon, so maps show one icon per mob type until they switch.
+- Head mode finds the model's head part. Flying and wide mobs (bats, phantoms, ghasts, the dragon) get
+  the full body instead, and a head facing away shows the back of the body.
+- Armour and held items are not drawn. Slime sizes get separate icons that look the same.
+- With `rotateWithHeading` on, long-tailed mobs (cats) look smaller, because every heading shares one frame.
 - JourneyMap: `iconSize` has no visible effect, and wide mobs can spill past the round marker.
 - Xaero: icons are larger than Xaero's heads at low zoom.
 
