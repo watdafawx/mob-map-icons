@@ -49,6 +49,29 @@ public final class ClientConfig {
             .comment("Draw mob icons on JourneyMap.")
             .define("journeymap", true);
 
+    public static final ModConfigSpec.BooleanValue FARM_MODE = BUILDER
+            .comment("Farm mode: when many mobs of one kind stand close together on the map, draw one icon",
+                    "with a count badge instead of a stack (FTB Chunks), or hide the duplicates",
+                    "(JourneyMap). Named, leashed, tamed and boss mobs are never merged.")
+            .define("farmMode", true);
+
+    public static final ModConfigSpec.IntValue MAX_ICONS = BUILDER
+            .comment("Most mob icons drawn at once, nearest to the player first. 0 = no limit.")
+            .defineInRange("maxIcons", 150, 0, 5000);
+
+    public static final ModConfigSpec.IntValue CLUSTER_RADIUS = BUILDER
+            .comment("Farm mode: mobs of the same kind closer than this many screen pixels merge into one icon.")
+            .defineInRange("clusterRadius", 12, 2, 64);
+
+    public static final ModConfigSpec.IntValue CLUSTER_MIN_COUNT = BUILDER
+            .comment("Farm mode: a group needs at least this many mobs before it is merged.")
+            .defineInRange("clusterMinCount", 3, 2, 100);
+
+    public static final ModConfigSpec.DoubleValue XAERO_SCALE = BUILDER
+            .comment("Xaero only: how much of the radar cell the icon fills (1.0 = Xaero's default 56 px box).",
+                    "Lower it if icons look bigger than Xaero's own heads.")
+            .defineInRange("xaeroScale", 0.75, 0.25, 1.0);
+
     public static final ModConfigSpec.ConfigValue<List<? extends String>> BLACKLIST = BUILDER
             .comment("Entity type ids that get no icon at all, e.g. \"minecraft:armor_stand\".")
             .defineListAllowEmpty("blacklist", List.<String>of(), () -> "minecraft:armor_stand",
@@ -112,6 +135,26 @@ public final class ClientConfig {
         } catch (IllegalStateException configNotLoadedYet) {
             return true;
         }
+    }
+
+    public static boolean farmMode() {
+        try { return FARM_MODE.get(); } catch (IllegalStateException notLoaded) { return true; }
+    }
+
+    public static int maxIcons() {
+        try { return MAX_ICONS.get(); } catch (IllegalStateException notLoaded) { return 150; }
+    }
+
+    public static int clusterRadius() {
+        try { return CLUSTER_RADIUS.get(); } catch (IllegalStateException notLoaded) { return 12; }
+    }
+
+    public static int clusterMinCount() {
+        try { return CLUSTER_MIN_COUNT.get(); } catch (IllegalStateException notLoaded) { return 3; }
+    }
+
+    public static double xaeroScale() {
+        try { return XAERO_SCALE.get(); } catch (IllegalStateException notLoaded) { return 0.75; }
     }
 
     public static boolean isBlacklisted(ResourceLocation entityTypeId) {
