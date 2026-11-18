@@ -111,6 +111,12 @@ final class MobIconSelfTest {
         ticks++;
         switch (phase) {
             case TITLE -> {
+                if (mc.screen instanceof net.minecraft.client.gui.screens.AccessibilityOnboardingScreen && mc.getOverlay() == null) {
+                    // First run of a fresh run dir: skip the Narrator prompt so the title screen shows.
+                    mc.options.onboardAccessibility = false;
+                    mc.options.save();
+                    mc.setScreen(new TitleScreen());
+                }
                 if (mc.screen instanceof TitleScreen && mc.getOverlay() == null) {
                     mc.options.getSoundSourceOptionInstance(SoundSource.MASTER).set(0.0);
                     mc.options.pauseOnLostFocus = false;
@@ -419,8 +425,8 @@ final class MobIconSelfTest {
         for (EntityType<?> type : TYPES) {
             (MobIconApi.isReady(type) ? ok : failed).add(key(type).toString());
         }
-        // PLAYER is expected to fail: it has no factory.
-        boolean expected = failed.equals(List.of(key(EntityType.PLAYER).toString()));
+        // PLAYER renders too now (a RemotePlayer wearing the local player's profile), so nothing may fail.
+        boolean expected = failed.isEmpty();
         pass &= expected;
         log("first render: " + (expected ? "PASS" : "FAIL") + " ready=" + ok + " failed=" + failed);
     }

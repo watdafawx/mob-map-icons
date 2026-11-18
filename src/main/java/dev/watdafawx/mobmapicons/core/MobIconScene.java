@@ -71,6 +71,12 @@ final class MobIconScene {
         ticks++;
         switch (phase) {
             case TITLE -> {
+                if (mc.screen instanceof net.minecraft.client.gui.screens.AccessibilityOnboardingScreen && mc.getOverlay() == null) {
+                    // First run of a fresh run dir: skip the Narrator prompt so the title screen shows.
+                    mc.options.onboardAccessibility = false;
+                    mc.options.save();
+                    mc.setScreen(new TitleScreen());
+                }
                 if (mc.screen instanceof TitleScreen && mc.getOverlay() == null) {
                     mc.options.getSoundSourceOptionInstance(SoundSource.MASTER).set(0.0);
                     mc.options.pauseOnLostFocus = false;
