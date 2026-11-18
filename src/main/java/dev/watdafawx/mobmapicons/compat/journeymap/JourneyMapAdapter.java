@@ -55,7 +55,10 @@ public final class JourneyMapAdapter implements IClientPlugin {
         var wrapped = event.getWrappedEntity();
         var entity = wrapped.getEntityRef().get();
         if (event.getType() == EntityRadarUpdateEvent.EntityType.PLAYER) {
-            if (ClientConfig.players() && entity instanceof net.minecraft.client.player.RemotePlayer other) updatePlayer(event, wrapped, other);
+            if (entity instanceof net.minecraft.client.player.RemotePlayer other) {
+                if (ClientConfig.players()) updatePlayer(event, other);
+                else restoreFace(other);
+            }
             return;
         }
         if (event.getType() != EntityRadarUpdateEvent.EntityType.MOB || !(entity instanceof Mob mob)) return;
@@ -82,14 +85,74 @@ public final class JourneyMapAdapter implements IClientPlugin {
         if (icon != null) wrapped.setEntityIconLocation(icon);
     }
 
-    private static void updatePlayer(EntityRadarUpdateEvent event, journeymap.api.v2.client.entity.WrappedEntity wrapped,
-                                     net.minecraft.client.player.RemotePlayer player) {
+    // ---------------------------------------------------------------------------------------------
+    // Other players. JourneyMap never asks the API for a player's icon: DrawEntityStep draws the skin's
+    // face from IgnSkin.faceImageCache (a private static map of uuid -> DynamicTexture, filled from the
+    // skin and handed out by IgnSkin.getFace), so setEntityIconLocation has no effect on a player. The only
+    // way to restyle one is to put our icon in that map. That is JourneyMap internals, reached by
+    // reflection and guarded: when anything differs, JourneyMap keeps drawing its faces.
+
+    private static java.lang.reflect.Field faceCache;
+    private static boolean faceFailed;
+    private record Face(long hash, net.minecraft.client.renderer.texture.DynamicTexture texture) {}
+
+    /** uuid -> the icon we last put in JourneyMap's face cache for that player (render thread only). */
+    private static final java.util.Map<java.util.UUID, Face> FACES = new java.util.HashMap<>();
+
+    @SuppressWarnings("unchecked")
+    private static java.util.Map<java.util.UUID, net.minecraft.client.renderer.texture.DynamicTexture> faces() {
+        if (faceFailed) return null;
+        try {
+            if (faceCache == null) {
+                faceCache = Class.forName("journeymap.client.texture.IgnSkin").getDeclaredField("faceImageCache");
+                faceCache.setAccessible(true);
+            }
+            return (java.util.Map<java.util.UUID, net.minecraft.client.renderer.texture.DynamicTexture>) faceCache.get(null);
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
+            faceFailed = true;
+            MobMapIcons.LOG.warn("JourneyMap's player face cache is not where expected; players keep JourneyMap's own faces", e);
+            return null;
+        }
+    }
+
+    private static void updatePlayer(EntityRadarUpdateEvent event, net.minecraft.client.player.RemotePlayer player) {
         int bucket = 0;
         if (MobIconApi.rotateWithHeading()) {
             bucket = MobIconApi.yawBucket(player.yBodyRot + (float) minimapRotation(event.getActiveUiState()));
         }
-        ResourceLocation icon = paddedIcon(player, bucket);
-        if (icon != null) wrapped.setEntityIconLocation(icon);
+        ResourceLocation plain = MobIconApi.getResourceIcon(player, bucket); // also queues the render
+        byte[] png = plain == null ? null : MobIconApi.getPng(player, bucket);
+        var map = png == null ? null : faces();
+        if (map == null) return;
+        CRC32 crc = new CRC32();
+        crc.update(png);
+        long hash = crc.getValue() << 20 ^ png.length;
+        java.util.UUID id = player.getUUID();
+        Minecraft.getInstance().execute(() -> {
+            Face done = FACES.get(id);
+            if (done != null && done.hash == hash && map.get(id) == done.texture) return;
+            try {
+                var texture = new net.minecraft.client.renderer.texture.DynamicTexture(
+                        com.mojang.blaze3d.platform.NativeImage.read(new java.io.ByteArrayInputStream(png)));
+                map.put(id, texture);
+                FACES.put(id, new Face(hash, texture));
+                if (done != null) done.texture.close(); // ours, never JourneyMap's own
+            } catch (java.io.IOException | RuntimeException e) {
+                MobMapIcons.LOG.debug("Could not hand a player icon to JourneyMap: {}", e.toString());
+            }
+        });
+    }
+
+    /** {@code players} was turned off: drop our icon so JourneyMap fetches the face again. */
+    private static void restoreFace(net.minecraft.client.player.RemotePlayer player) {
+        var map = faces();
+        if (map == null) return;
+        Minecraft.getInstance().execute(() -> {
+            Face ours = FACES.remove(player.getUUID());
+            if (ours == null) return;
+            if (map.get(player.getUUID()) == ours.texture) map.remove(player.getUUID());
+            ours.texture.close();
+        });
     }
 
     private static long lastDebug;

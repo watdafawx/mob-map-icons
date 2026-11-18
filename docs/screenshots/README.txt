@@ -74,3 +74,14 @@ Notes
   Chunks draws the per-variant icon (red and blue sheep in the gallery).
 - Xaero's own radar icons are small heads. Full-body icons at xaeroScale 0.75 are about 2x their size;
   0.5 is close to Xaero's own size, 1.0 fills the whole radar cell and overlaps in a crowd.
+
+
+Players (2026-11-18)
+--------------------
+Two fake RemotePlayers (Steve_Test, Alex_Test: the two default skins, different headings) stand next to the
+mobs in the `runScene` scene. Left players=false (the map mod's own face), right players=true. The local
+player is never touched.
+
+players-ftbchunks.png   FTB Chunks large map (M, 5 zoom steps): face vs full-body skin icon, heading respected.
+players-journeymap.png  JourneyMap minimap, zoomed 2 steps: face vs full-body skin icon. JourneyMap draws players
+                        from its own skin-face cache (not the radar icon API), so the adapter puts our icon there.

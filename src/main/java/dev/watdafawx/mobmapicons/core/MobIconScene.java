@@ -94,10 +94,14 @@ final class MobIconScene {
                     conn.sendCommand("summon minecraft:" + mob[0] + " " + (Integer.parseInt(mob[1]) + 0.5)
                             + " -60 " + (Integer.parseInt(mob[2]) + 0.5) + " {" + nbt + "}");
                 }
+                spawnPlayers(mc);
                 MobMapIcons.LOG.info("scene: ready, {} mobs summoned", MOBS.size());
                 next(Phase.IDLE);
             }
-            case IDLE -> script(mc);
+            case IDLE -> {
+                if (ticks % 10 == 0) markPlayersVisibleToFtb();
+                script(mc);
+            }
         }
     }
 
@@ -116,6 +120,8 @@ final class MobIconScene {
     //   reload                               resource reload (like F3+T)
     //   cfg <ftbChunks|xaero|journeymap|tint> <true|false>, cfg mode <HEAD|FULL_BODY>, cfg size <n>
     //   log <text>                           echo to the log
+    //   players                              (re)spawn the two fake remote players
+    //   cfgplayers <true|false>              the `players` config option
 
     private static final java.util.ArrayDeque<String> SCRIPT = new java.util.ArrayDeque<>();
     private static int waitTicks;
@@ -191,6 +197,8 @@ final class MobIconScene {
             case "config" -> mc.setScreen(new net.neoforged.neoforge.client.gui.ConfigurationScreen(
                     net.neoforged.fml.ModList.get().getModContainerById(dev.watdafawx.mobmapicons.MobMapIcons.MODID).orElseThrow(), mc.screen));
             case "log" -> MobMapIcons.LOG.info("scene: {}", arg);
+            case "players" -> spawnPlayers(mc);
+            case "cfgplayers" -> dev.watdafawx.mobmapicons.ClientConfig.PLAYERS.set(Boolean.parseBoolean(arg));
             case "cfg" -> {
                 boolean on = Boolean.parseBoolean(n.length > 1 ? n[1] : "");
                 switch (n[0]) {
@@ -205,6 +213,82 @@ final class MobIconScene {
                 }
             }
             default -> MobMapIcons.LOG.warn("scene: unknown step {}", line);
+        }
+    }
+
+    /** {@code name, uuid low bits, x, z, yaw}: two fake players next to the mobs, with different default skins and headings. */
+    private static final Object[][] PLAYERS = {
+            {"Steve_Test", 1L, -9.5, -6.5, 90.0F},
+            {"Alex_Test", 2L, 9.5, -4.5, 225.0F},
+    };
+
+    @SuppressWarnings("unchecked")
+    private static void spawnPlayers(Minecraft mc) {
+        var level = mc.level;
+        if (level == null) return;
+        for (Object[] p : PLAYERS) {
+            java.util.UUID uuid = new java.util.UUID(0L, (Long) p[1]);
+            var profile = new com.mojang.authlib.GameProfile(uuid, (String) p[0]);
+            var old = level.getPlayerByUUID(uuid);
+            if (old != null) old.discard();
+            var remote = new net.minecraft.client.player.RemotePlayer(level, profile);
+            float yaw = (Float) p[4];
+            remote.moveTo((Double) p[2], -60.0, (Double) p[3], yaw, 0.0F);
+            remote.yBodyRot = yaw;
+            remote.yHeadRot = yaw;
+            remote.yBodyRotO = yaw;
+            remote.yHeadRotO = yaw;
+            // Tab-list entry, like a server sends: the skin resolves and map mods that list players from the
+            // tab list (JourneyMap) see it. The skin is the uuid's default one.
+            try {
+                var info = new net.minecraft.client.multiplayer.PlayerInfo(profile, false);
+                var listener = net.minecraft.client.multiplayer.ClientPacketListener.class;
+                var infoMap = listener.getDeclaredField("playerInfoMap");
+                infoMap.setAccessible(true);
+                ((java.util.Map<java.util.UUID, net.minecraft.client.multiplayer.PlayerInfo>) infoMap.get(mc.player.connection)).put(uuid, info);
+                var listed = listener.getDeclaredField("listedPlayers");
+                listed.setAccessible(true);
+                ((java.util.Collection<net.minecraft.client.multiplayer.PlayerInfo>) listed.get(mc.player.connection)).add(info);
+            } catch (Throwable t) {
+                MobMapIcons.LOG.warn("scene: could not add tab entry for {}", p[0], t);
+            }
+            level.addEntity(remote);
+            registerWithJourneyMap(uuid, remote);
+        }
+        MobMapIcons.LOG.info("scene: {} fake players spawned", PLAYERS.length);
+    }
+
+    /**
+     * FTB Chunks only maps players its server side lists as visible (a packet), and the fake players
+     * exist on no server, so put their uuids in FTB's client list by reflection. No-op without FTB.
+     */
+    @SuppressWarnings("unchecked")
+    private static void markPlayersVisibleToFtb() {
+        if (!net.neoforged.fml.ModList.get().isLoaded("ftbchunks")) return;
+        try {
+            var field = Class.forName("dev.ftb.mods.ftbchunks.client.VisibleClientPlayers").getDeclaredField("CLIENT_LIST");
+            field.setAccessible(true);
+            var set = (java.util.Set<java.util.UUID>) field.get(null);
+            for (Object[] p : PLAYERS) set.add(new java.util.UUID(0L, (Long) p[1]));
+        } catch (Throwable t) {
+            MobMapIcons.LOG.warn("scene: could not mark fake players visible to FTB Chunks", t);
+        }
+    }
+
+    /**
+     * JourneyMap's integrated server radar lists players from a manager fed by its own server packets,
+     * which the fake players never produce, so put them in by reflection. No-op without JourneyMap.
+     */
+    @SuppressWarnings("unchecked")
+    private static void registerWithJourneyMap(java.util.UUID uuid, net.minecraft.world.entity.player.Player player) {
+        if (!net.neoforged.fml.ModList.get().isLoaded("journeymap")) return;
+        try {
+            var cls = Class.forName("journeymap.common.util.PlayerRadarManager");
+            Object manager = cls.getMethod("getInstance").invoke(null);
+            var map = (java.util.Map<java.util.UUID, net.minecraft.world.entity.player.Player>) cls.getMethod("getPlayers").invoke(manager);
+            map.put(uuid, player);
+        } catch (Throwable t) {
+            MobMapIcons.LOG.warn("scene: could not register fake players with JourneyMap", t);
         }
     }
 
