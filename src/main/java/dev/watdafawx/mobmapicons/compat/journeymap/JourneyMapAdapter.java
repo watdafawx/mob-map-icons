@@ -3,6 +3,7 @@ package dev.watdafawx.mobmapicons.compat.journeymap;
 import dev.watdafawx.mobmapicons.ClientConfig;
 import dev.watdafawx.mobmapicons.MobMapIcons;
 import dev.watdafawx.mobmapicons.api.MobIconApi;
+import dev.watdafawx.mobmapicons.core.HeadingArrow;
 import dev.watdafawx.mobmapicons.core.IconPadding;
 import journeymap.api.v2.client.IClientAPI;
 import journeymap.api.v2.client.IClientPlugin;
@@ -34,6 +35,8 @@ import java.util.zip.CRC32;
 public final class JourneyMapAdapter implements IClientPlugin {
     /** Margin kept free around the icon inside the round marker, per side, as a fraction of the icon edge. */
     private static final double INSET = 0.10;
+    /** Wider margin when the heading arrow is drawn over the rim (see HeadingArrow). */
+    private static final double ARROW_INSET = 0.22;
 
     private static final FarmClusters CLUSTERS = new FarmClusters();
 
@@ -189,16 +192,21 @@ public final class JourneyMapAdapter implements IClientPlugin {
      * fitting fails.
      */
     private static ResourceLocation paddedIcon(LivingEntity mob, int bucket, FrameRule rule, boolean arrow) {
-        ResourceLocation plain = MobIconApi.getResourceIcon(mob, bucket, rule.body(), arrow); // also queues the render
-        byte[] png = plain == null ? null : MobIconApi.getPng(mob, bucket, rule.body(), arrow);
+        // Marker kept: the arrow is not baked in (that shrinks the icon twice, once for the arrow's room and once
+        // fitting the marker, and leaves it small and under the marker's border); it is drawn over the fitted icon.
+        boolean overlay = arrow && !rule.hideFrame();
+        boolean baked = arrow && !overlay;
+        ResourceLocation plain = MobIconApi.getResourceIcon(mob, bucket, rule.body(), baked); // also queues the render
+        byte[] png = plain == null ? null : MobIconApi.getPng(mob, bucket, rule.body(), baked);
         if (png == null) return null;
         CRC32 crc = new CRC32();
         crc.update(png);
         // Fitted and as-is copies of one icon never share a path: the bytes behind a path must not change.
         String path = PaddedIconPack.PREFIX + Long.toHexString(crc.getValue()) + "_" + png.length
-                + (rule.hideFrame() ? "_free" : "_fit") + ".png";
+                + (rule.hideFrame() ? "_free" : "_fit") + (overlay ? "_h" + Math.floorMod(bucket, 8) : "") + ".png";
         if (!PaddedIconPack.has(path)) {
-            byte[] padded = rule.hideFrame() ? png : IconPadding.fit(png, INSET, true);
+            byte[] padded = rule.hideFrame() ? png : IconPadding.fit(png, overlay ? ARROW_INSET : INSET, true);
+            if (overlay && padded != null) padded = HeadingArrow.overlay(padded, bucket);
             if (padded == null) return plain;
             PaddedIconPack.put(path, padded);
         }

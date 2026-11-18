@@ -141,3 +141,15 @@ heading-arrow.png         before = headingArrow off (plain icons), after = on. B
                           The mob shrinks to 75% to make room; no arrow is clipped.
 (Also checked, not saved: BADGE, HEAD_PIN, HEAD mode and rotate+arrow on FTB; JourneyMap minimap with showMobHeading
 off shows our arrow, small and partly under JM's round marker; with it on we draw none.)
+
+Heading arrow tuned (2026-11-19, branch arrow2)
+-----------------------------------------------
+Same scene as above (8 cows r=6, 8 zombies r=12, explicit Rotation), before = main, after = arrow2. 2x nearest crops,
+Pillow labels, palette-quantized. JourneyMap with showMobHeading off; FTB Chunks large map. Numbers: baked arrow
+len .24n / half .165n (was .21/.145); HEAD_PIN arrow tip rides the head circle rim (+.12 len, +.60 len for downward
+buckets so the down arrow hangs below the tail); JM with its pin kept: arrow drawn after padding, amber, len .26n,
+half .175n, tip r=.335n, edge max(1px,.05n), mob inset .22 (was .10), no upscaling.
+
+heading-arrow-tuned.png   rows: JM minimap OUTLINE+BADGE, JM minimap HEAD_PIN+SILHOUETTE, FTB large OUTLINE+HEAD_PIN,
+                          FTB large BADGE+SILHOUETTE. Each pair is before | after.
+heading-arrow.png         (replaced) FTB large map OUTLINE, before | after the tuning.

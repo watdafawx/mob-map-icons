@@ -22,8 +22,12 @@ final class IconStyles {
 
     /** Share of the icon edge the styled mob keeps when an arrow is added; the rest is the arrow's room. */
     static final double ARROW_SHRINK = 0.75;
-    private static final int ARROW_FILL = 0xfff0f7fa; // ABGR: warm white
-    private static final int ARROW_EDGE = 0xff12121a; // ABGR: near black
+    /** Arrow length and half width as shares of the icon edge (baked into the icon: FTB Chunks, Xaero, the rest). */
+    static final double ARROW_LEN = 0.24, ARROW_HALF = 0.165;
+    /** HEAD_PIN: how far past the head circle's rim the arrow tip sits, in arrow lengths. */
+    private static final double PIN_TIP = 0.12, PIN_TIP_DOWN = 0.60; // downward: hang below the tail instead of over it
+    static final int ARROW_FILL = 0xfff0f7fa; // ABGR: warm white
+    static final int ARROW_EDGE = 0xff12121a; // ABGR: near black
 
     /**
      * The styled icon, {@code source}'s edge long. {@code arrow} is a heading bucket 0..7 (see
@@ -42,9 +46,11 @@ final class IconStyles {
         }
         // Arrow ring: the icon's centre, or the head circle's centre on the pin.
         double cx=n/2.0, cy=n/2.0, ring=n/2.0-1.6;
-        double len=n*.21, half=n*.145;
-        if(style==IconStyle.HEAD_PIN) { cy=off+m*.40+.5; ring=m*.40+len*.4; }
-        drawArrow(out,cx,cy,ring,len,half,arrow);
+        double len=n*ARROW_LEN, half=n*ARROW_HALF;
+        // HEAD_PIN: the arrow rides the head circle's rim, tip just past it, instead of hanging off the
+        // circle's centre by a whole arrow length, where the down arrow landed on the pin's tail.
+        if(style==IconStyle.HEAD_PIN) { cy=off+m*.40+.5; ring=m*.40+len*(Math.cos(Math.toRadians(arrow*45.0))>.3?PIN_TIP_DOWN:PIN_TIP); }
+        drawArrow(out,cx,cy,ring,len,half,arrow,ARROW_FILL,ARROW_EDGE,1,1.6,.62);
         return out;
     }
 
@@ -53,15 +59,16 @@ final class IconStyles {
      * direction. Bucket 0 points down the icon (towards the viewer), each step turns 45 degrees clockwise
      * on screen: left, up, right. Shifted inward when any part would leave the image.
      */
-    private static void drawArrow(NativeImage out,double cx,double cy,double ring,double len,double half,int bucket) {
+    static void drawArrow(NativeImage out,double cx,double cy,double ring,double len,double half,int bucket,
+                          int fillColor,int edgeColor,double edgeRadius,double pad,double notch) {
         int n=out.getWidth();
         double a=Math.toRadians(bucket*45.0), dx=-Math.sin(a), dy=Math.cos(a), px=-dy, py=dx;
         double[][] v={ // tip, back corner, notch, back corner
                 {cx+dx*ring, cy+dy*ring},
                 {cx+dx*(ring-len)+px*half, cy+dy*(ring-len)+py*half},
-                {cx+dx*(ring-len*.62), cy+dy*(ring-len*.62)},
+                {cx+dx*(ring-len*notch), cy+dy*(ring-len*notch)},
                 {cx+dx*(ring-len)-px*half, cy+dy*(ring-len)-py*half}};
-        double shiftX=0,shiftY=0,pad=1.6;
+        double shiftX=0,shiftY=0;
         for(double[] p:v) {
             if(p[0]<pad) shiftX=Math.max(shiftX,pad-p[0]); else if(p[0]>n-pad) shiftX=Math.min(shiftX,n-pad-p[0]);
             if(p[1]<pad) shiftY=Math.max(shiftY,pad-p[1]); else if(p[1]>n-pad) shiftY=Math.min(shiftY,n-pad-p[1]);
@@ -75,15 +82,17 @@ final class IconStyles {
         }
         for(int y=0;y<n;y++) for(int x=0;x<n;x++) {
             float edge=0;
-            for(int oy=-1;oy<=1;oy++) for(int ox=-1;ox<=1;ox++) {
+            int er=(int)Math.ceil(edgeRadius);
+            for(int oy=-er;oy<=er;oy++) for(int ox=-er;ox<=er;ox++) {
+                if(er>1 && ox*ox+oy*oy>edgeRadius*edgeRadius+.5) continue;
                 int xx=x+ox,yy=y+oy;
                 if(xx>=0&&yy>=0&&xx<n&&yy<n) edge=Math.max(edge,cover[yy*n+xx]);
             }
             if(edge<=0) continue;
             int px0=out.getPixelRGBA(x,y);
-            px0=over(((int)(edge*255)<<24)|(ARROW_EDGE&0xffffff),px0);
+            px0=over(((int)(edge*255)<<24)|(edgeColor&0xffffff),px0);
             float c=cover[y*n+x];
-            if(c>0) px0=over(((int)(c*255)<<24)|(ARROW_FILL&0xffffff),px0);
+            if(c>0) px0=over(((int)(c*255)<<24)|(fillColor&0xffffff),px0);
             out.setPixelRGBA(x,y,px0);
         }
     }
