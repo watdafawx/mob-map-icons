@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0
+
+- JourneyMap: icons now follow the mob's heading (8 rotated icons per variant, picked per radar
+  update; JourneyMap never rotates a mob icon itself), and every icon is shrunk to fit inside the
+  round marker, so wide mobs (cows, sheep, wolves) no longer spill past it. Padded copies are served
+  from their own `mob_map_icons_jm` texture path; other map adapters keep the unpadded icons.
+- JourneyMap farm mode: same-kind, same-variant mobs close together on the map collapse into one
+  icon labelled `37 x Cow`. Named, leashed, tamed and boss mobs are never merged; `maxIcons` keeps
+  the nearest icons. JourneyMap cannot draw a count badge, so the count is the icon's name label.
+
 ## 0.2.0
 
 - Icons per variant: babies, sheep colours, villager type and profession, cat/wolf/horse/fish
