@@ -6,6 +6,13 @@
 - In-game config screen and `/mobmapicons style <name>` / `reload` commands.
 - Bounded previous-generation textures during rebuilds; style comparison contact sheets.
 - Xaero: new `xaeroScale` config (default 0.75) sizes icons against Xaero's own 56 px icon box, nearest-neighbour up and area down, republished on change without a resource reload.
+- JourneyMap: icons now follow the mob's heading (8 rotated icons per variant, picked per radar
+  update; JourneyMap never rotates a mob icon itself), and every icon is shrunk to fit inside the
+  round marker, so wide mobs (cows, sheep, wolves) no longer spill past it. Padded copies are served
+  from their own `mob_map_icons_jm` texture path; other map adapters keep the unpadded icons.
+- JourneyMap farm mode: same-kind, same-variant mobs close together on the map collapse into one
+  icon labelled `37 x Cow`. Named, leashed, tamed and boss mobs are never merged; `maxIcons` keeps
+  the nearest icons. JourneyMap cannot draw a count badge, so the count is the icon's name label.
 
 ## 0.2.0
 
