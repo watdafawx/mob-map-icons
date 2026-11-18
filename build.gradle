@@ -34,6 +34,13 @@ neoForge {
             client()
             gameDirectory = file('run')
         }
+        // Dev render check: makes a scratch world, renders test mobs, dumps PNGs to
+        // run/mob_map_icons_dump/ and quits. See core/MobIconSelfTest. Opens a game window.
+        selftest {
+            client()
+            gameDirectory = file('run')
+            systemProperty 'mobmapicons.selftest', 'true'
+        }
         configureEach {
             systemProperty 'forge.logging.markers', 'REGISTRIES'
             logLevel = org.slf4j.event.Level.DEBUG

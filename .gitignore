@@ -27,3 +27,6 @@ bin/
 run-data/
 run-gametest/
 src/generated/resources/.cache/
+
+# Agent worktrees
+.claude/

@@ -39,6 +39,7 @@ public class MobMapIcons {
         if (FMLEnvironment.dist.isClient()) {
             container.registerConfig(ModConfig.Type.CLIENT, ClientConfig.SPEC);
             modBus.addListener(MobMapIcons::clientSetup);
+            dev.watdafawx.mobmapicons.core.MobIconCore.init(modBus);
         }
     }
 
