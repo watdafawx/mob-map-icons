@@ -72,6 +72,11 @@ dependencies {
     // === compat:xaero ===
 
     // === compat:journeymap ===
+    repositories.maven {
+        url 'https://maven.blamejared.com'
+        content { includeGroup 'info.journeymap' }
+    }
+    compileOnly 'info.journeymap:journeymap-api-neoforge:2.0.0-1.21.1'
 }
 
 tasks.withType(JavaCompile).configureEach {

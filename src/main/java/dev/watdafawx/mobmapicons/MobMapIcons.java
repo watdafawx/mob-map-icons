@@ -57,7 +57,7 @@ public class MobMapIcons {
             }
 
             if (ModList.get().isLoaded(JOURNEYMAP)) {
-                // TODO(compat:journeymap): loadAdapter(JOURNEYMAP, "dev.watdafawx.mobmapicons.compat.journeymap.JourneyMapAdapter");
+                loadAdapter(JOURNEYMAP, "dev.watdafawx.mobmapicons.compat.journeymap.JourneyMapAdapter");
             }
         });
     }
