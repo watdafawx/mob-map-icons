@@ -7,6 +7,7 @@ import dev.ftb.mods.ftbchunks.client.gui.LargeMapScreen;
 import dev.ftb.mods.ftbchunks.client.mapicon.EntityMapIcon;
 import dev.ftb.mods.ftblibrary.util.client.ClientUtils;
 import dev.watdafawx.mobmapicons.ClientConfig;
+import dev.watdafawx.mobmapicons.api.MapMod;
 import dev.watdafawx.mobmapicons.api.MobIconApi;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -142,8 +143,8 @@ final class IconPass {
     }
 
     private static int configHash() {
-        return Objects.hash(ClientConfig.farmMode(), ClientConfig.clusterRadius(), ClientConfig.clusterMinCount(),
-                ClientConfig.maxIcons(), ClientConfig.players());
+        return Objects.hash(ClientConfig.farm(MapMod.FTB), ClientConfig.clusterRadius(), ClientConfig.clusterMinCount(),
+                ClientConfig.maxIcons(), ClientConfig.players(MapMod.FTB), ClientConfig.ownPlayer(MapMod.FTB));
     }
 
     /** {@code true} when the zoom or config the last pass used no longer matches, so FTB should rebuild. */
@@ -170,7 +171,7 @@ final class IconPass {
         double px = pixelsPerBlock(type);
         BUILT_PX[ti] = px;
         BUILT_CFG[ti] = configHash();
-        boolean farm = ClientConfig.farmMode() && px > 0;
+        boolean farm = ClientConfig.farm(MapMod.FTB) && px > 0;
         double invCell = px / ClientConfig.clusterRadius(); // cells per block
         int minCount = ClientConfig.clusterMinCount();
         int maxIcons = ClientConfig.maxIcons();
@@ -185,13 +186,20 @@ final class IconPass {
         CELLS.clear();
 
         // 1. Swap every mob icon for ours and sort the mergeable ones into cells.
+        boolean own = ClientConfig.ownPlayer(MapMod.FTB);
+        int ownFace = -1, ownPointer = -1;
         for (int i = 0; i < n; i++) {
             if (!(icons.get(i) instanceof EntityMapIcon ftb)) {
+                if (own && ownPointer < 0 && icons.get(i).getClass().getName().endsWith(".PointerIcon")) ownPointer = i;
                 continue;
             }
             Entity e = FtbChunksAdapter.entityOf(ftb);
-            if (e == null || e == player || (e instanceof Player && !ClientConfig.players())) {
-                continue; // FTB draws player faces itself unless `players` is on; the local player is never touched
+            if (e != null && e == player) {
+                if (own) ownFace = i; // swapped below; never clustered, capped or counted
+                continue;
+            }
+            if (e == null || (e instanceof Player && !ClientConfig.players(MapMod.FTB))) {
+                continue; // FTB draws other players' faces itself unless `players` is on
             }
             Mob m = mob();
             m.slot = i;
@@ -206,7 +214,7 @@ final class IconPass {
             if (!farm || !mergeable(e)) {
                 continue;
             }
-            ResourceLocation tex = MobIconApi.getIcon(e);
+            ResourceLocation tex = MobIconApi.getIcon(e, MapMod.FTB);
             if (tex == null) {
                 continue; // still rendering: stays its own icon until the next pass
             }
@@ -222,6 +230,14 @@ final class IconPass {
                 CELLS.put(g.key, g);
             }
             g.members.add(m);
+        }
+
+        // Own marker (ownPlayer): our icon where FTB draws your face, or where it draws its pointer when the
+        // pointer is all there is. With face and pointer both on, FTB's pointer stays as the heading marker.
+        if (ownFace >= 0) {
+            icons.set(ownFace, new OverrideIcon(icons.get(ownFace), player, false));
+        } else if (ownPointer >= 0) {
+            icons.set(ownPointer, new OverrideIcon(icons.get(ownPointer), player, true));
         }
 
         // 2. Join neighbouring cells of one look (union-find over the forward 8-neighbourhood), so a

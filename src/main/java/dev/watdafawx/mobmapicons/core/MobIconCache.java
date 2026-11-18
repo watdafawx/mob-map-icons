@@ -5,6 +5,8 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import dev.watdafawx.mobmapicons.ClientConfig;
 import dev.watdafawx.mobmapicons.MobMapIcons;
 import dev.watdafawx.mobmapicons.api.IconMode;
+import dev.watdafawx.mobmapicons.api.IconProfile;
+import dev.watdafawx.mobmapicons.api.MapMod;
 import dev.watdafawx.mobmapicons.api.IconStyle;
 import dev.watdafawx.mobmapicons.api.MobIconApi;
 import net.minecraft.client.Minecraft;
@@ -84,9 +86,9 @@ public final class MobIconCache {
      * which the {@link EntityType} lookups use. {@code bucket} is the model's rotation (always 0 with
      * rotateWithHeading off); {@code arrow} is the heading drawn as an arrow, or -1 for none.
      */
-    record Key(EntityType<?> type, @Nullable IconVariant variant, int bucket, IconStyle style, int arrow) {
-        Key(EntityType<?> type, @Nullable IconVariant variant, int bucket) { this(type, variant, bucket, ClientConfig.iconStyle(), -1); }
-        Key(EntityType<?> type, @Nullable IconVariant variant, int bucket, IconStyle style) { this(type, variant, bucket, style, -1); }
+    record Key(EntityType<?> type, @Nullable IconVariant variant, int bucket, IconProfile spec, int arrow) {
+        IconStyle style() { return spec.style(); }
+
         ResourceLocation typeId() {
             return BuiltInRegistries.ENTITY_TYPE.getKey(type);
         }
@@ -101,10 +103,10 @@ public final class MobIconCache {
 
     private record Request(Key key, @Nullable Entity source) {}
 
-    private record FrameKey(EntityType<?> type, @Nullable IconVariant variant) {}
+    private record FrameKey(EntityType<?> type, @Nullable IconVariant variant, int outSize) {}
 
     /** What a style's pixels are made from, before the style and the arrow: the model render(s). */
-    private record BaseKey(EntityType<?> type, @Nullable IconVariant variant, int bucket, IconStyle style) {}
+    private record BaseKey(EntityType<?> type, @Nullable IconVariant variant, int bucket, IconProfile spec) {}
 
     private record Base(NativeImage raw, @Nullable NativeImage head) {
         void close() {
@@ -157,9 +159,6 @@ public final class MobIconCache {
     /** Config the cached icons were rendered with; a change throws them all away. Render thread. */
     private static List<Object> renderedSettings;
     private static final Map<Key, Entry> PREVIOUS = new LinkedHashMap<>();
-    private static IconMode renderedMode = null;
-    private static int renderedSize = -1;
-    private static boolean renderedRotate;
     /** Bumped whenever every icon is thrown away; part of variant resource paths. */
     private static volatile int generation;
     /** Makes every built texture id unique. Render thread. */
@@ -170,33 +169,69 @@ public final class MobIconCache {
     // ---------------------------------------------------------------------------------------------
     // Lookups (any thread)
 
+    /** The render-defining part of a profile; the arrow is the key's own field. */
+    private static IconProfile specOf(IconProfile p) {
+        return p.arrow() ? new IconProfile(p.style(), p.mode(), p.size(), p.rotate(), false) : p;
+    }
+
+    private static Key typeKey(EntityType<?> type, IconProfile profile) {
+        return new Key(type, null, 0, specOf(profile), -1);
+    }
+
+    private static IconProfile global() {
+        return ClientConfig.profile(MapMod.GLOBAL);
+    }
+
     /** The type's default icon texture id, or {@code null} (pending, failed or blacklisted). Queues a miss. */
     @Nullable
     public static ResourceLocation getIcon(EntityType<?> type) {
+        return getIcon(type, MapMod.GLOBAL);
+    }
+
+    /** Like {@link #getIcon(EntityType)}, in the look {@code mod}'s config asks for. */
+    @Nullable
+    public static ResourceLocation getIcon(EntityType<?> type, MapMod mod) {
         if (isBlacklisted(type)) return null;
-        return lookup(new Key(type, null, 0), null).texture();
+        return lookup(typeKey(type, ClientConfig.profile(mod)), null).texture();
     }
 
     public static boolean isReady(EntityType<?> type) {
-        return !isBlacklisted(type) && peek(new Key(type, null, 0)).ready();
+        return isReady(type, MapMod.GLOBAL);
+    }
+
+    public static boolean isReady(EntityType<?> type, MapMod mod) {
+        return !isBlacklisted(type) && peek(typeKey(type, ClientConfig.profile(mod))).ready();
     }
 
     /** {@code true} once a type's default icon has been tried and cannot be made. */
     public static boolean isFailed(EntityType<?> type) {
-        return peek(new Key(type, null, 0)).failed();
+        return peek(typeKey(type, global())).failed();
     }
 
     /** PNG bytes of the type's ready default icon, or {@code null}. Does not queue a render. */
     public static byte @Nullable [] getPng(EntityType<?> type) {
+        return getPng(type, MapMod.GLOBAL);
+    }
+
+    public static byte @Nullable [] getPng(EntityType<?> type, MapMod mod) {
         if (isBlacklisted(type)) return null;
-        synchronized(LOCK) { Key k=new Key(type,null,0); Entry e=peek(k); return e.ready()?e.png():fallback(k).png(); }
+        synchronized (LOCK) {
+            Key k = typeKey(type, ClientConfig.profile(mod));
+            Entry e = peek(k);
+            return e.ready() ? e.png() : fallback(k).png();
+        }
     }
 
     /** Resource location of the type's default icon, or {@code null}. Queues a miss. */
     @Nullable
     public static ResourceLocation getResourceIcon(EntityType<?> type) {
+        return getResourceIcon(type, MapMod.GLOBAL);
+    }
+
+    @Nullable
+    public static ResourceLocation getResourceIcon(EntityType<?> type, MapMod mod) {
         if (isBlacklisted(type)) return null;
-        return lookup(new Key(type, null, 0), null).resource();
+        return lookup(typeKey(type, ClientConfig.profile(mod)), null).resource();
     }
 
     /**
@@ -205,57 +240,83 @@ public final class MobIconCache {
      */
     @Nullable
     public static ResourceLocation getIcon(Entity entity, int bucket) {
-        return best(entity, bucket, ClientConfig.iconStyle(), true, true).texture();
+        return getIcon(entity, bucket, MapMod.GLOBAL);
+    }
+
+    @Nullable
+    public static ResourceLocation getIcon(Entity entity, int bucket, MapMod mod) {
+        return best(entity, bucket, ClientConfig.profile(mod), true, true).texture();
+    }
+
+    /** Like {@link #getIcon(Entity, int, MapMod)}, with the heading arrow left out when {@code arrow} is false. */
+    @Nullable
+    public static ResourceLocation getIcon(Entity entity, int bucket, MapMod mod, boolean arrow) {
+        return best(entity, bucket, ClientConfig.profile(mod), arrow, true).texture();
     }
 
     /** The icon facing the viewer with no heading arrow (for callers that do not know the heading). */
     @Nullable
     public static ResourceLocation getIcon(Entity entity) {
-        return best(entity, 0, ClientConfig.iconStyle(), false, true).texture();
+        return getIcon(entity, MapMod.GLOBAL);
+    }
+
+    @Nullable
+    public static ResourceLocation getIcon(Entity entity, MapMod mod) {
+        return best(entity, 0, ClientConfig.profile(mod), false, true).texture();
     }
 
     /** PNG of what {@link #getIcon(Entity, int)} would return. Does not queue. */
     public static byte @Nullable [] getPng(Entity entity, int bucket) {
-        return best(entity, bucket, ClientConfig.iconStyle(), true, false).png();
+        return best(entity, bucket, global(), true, false).png();
     }
 
     /** Like {@link #getPng(Entity, int)}, but in {@code style} instead of the configured one. */
     public static byte @Nullable [] getPng(Entity entity, int bucket, IconStyle style) {
-        return best(entity, bucket, style, true, false).png();
+        return best(entity, bucket, global().withStyle(style), true, false).png();
     }
 
     /** Like {@link #getPng(Entity, int, IconStyle)}; {@code arrow == false} leaves out the heading arrow. */
     public static byte @Nullable [] getPng(Entity entity, int bucket, IconStyle style, boolean arrow) {
-        return best(entity, bucket, style, arrow, false).png();
+        return best(entity, bucket, global().withStyle(style), arrow, false).png();
+    }
+
+    /** PNG for an explicit profile (a map mod's effective look, possibly with its own style override). */
+    public static byte @Nullable [] getPng(Entity entity, int bucket, IconProfile profile, boolean arrow) {
+        return best(entity, bucket, profile, arrow, false).png();
     }
 
     /** Resource location of what {@link #getIcon(Entity, int)} would return. Queues a miss. */
     @Nullable
     public static ResourceLocation getResourceIcon(Entity entity, int bucket) {
-        return best(entity, bucket, ClientConfig.iconStyle(), true, true).resource();
+        return best(entity, bucket, global(), true, true).resource();
     }
 
     /** Like {@link #getResourceIcon(Entity, int)}, but in {@code style} instead of the configured one. */
     @Nullable
     public static ResourceLocation getResourceIcon(Entity entity, int bucket, IconStyle style) {
-        return best(entity, bucket, style, true, true).resource();
+        return best(entity, bucket, global().withStyle(style), true, true).resource();
     }
 
     /** Like {@link #getResourceIcon(Entity, int, IconStyle)}; {@code arrow == false} leaves out the heading arrow. */
     @Nullable
     public static ResourceLocation getResourceIcon(Entity entity, int bucket, IconStyle style, boolean arrow) {
-        return best(entity, bucket, style, arrow, true).resource();
+        return best(entity, bucket, global().withStyle(style), arrow, true).resource();
+    }
+
+    @Nullable
+    public static ResourceLocation getResourceIcon(Entity entity, int bucket, IconProfile profile, boolean arrow) {
+        return best(entity, bucket, profile, arrow, true).resource();
     }
 
     /** {@code true} when the exact icon for this entity and bucket is ready (no stand-in). Does not queue. */
     public static boolean isExactReady(Entity entity, int bucket) {
-        Key key = keyOf(entity, bucket);
+        Key key = keyOf(entity, bucket, global(), true);
         return key != null && peek(key).ready();
     }
 
     /** {@code true} when the exact icon for this entity and bucket has been tried and cannot be made. */
     public static boolean isExactFailed(Entity entity, int bucket) {
-        Key key = keyOf(entity, bucket);
+        Key key = keyOf(entity, bucket, global(), true);
         return key == null || peek(key).failed();
     }
 
@@ -273,45 +334,39 @@ public final class MobIconCache {
     }
 
     @Nullable
-    private static Key keyOf(Entity entity, int bucket) {
-        return keyOf(entity, bucket, ClientConfig.iconStyle(), true);
-    }
-
-    @Nullable
-    private static Key keyOf(Entity entity, int bucket, IconStyle style, boolean arrow) {
+    private static Key keyOf(Entity entity, int bucket, IconProfile profile, boolean arrow) {
         EntityType<?> type = entity.getType();
         if (isBlacklisted(type)) return null;
-        return headingKey(type, IconVariant.of(entity), bucket, style, arrow);
+        return headingKey(type, IconVariant.of(entity), bucket, profile, arrow);
     }
 
     /**
-     * The key for a heading bucket: the model turns only with rotateWithHeading (else bucket 0, so one
-     * render serves every heading) and the arrow exists only with headingArrow and when the caller
+     * The key for a heading bucket: the model turns only with the profile's rotate (else bucket 0, so one
+     * render serves every heading) and the arrow exists only with its arrow flag and when the caller
      * wants it ({@code arrow}; lookups without a heading do not).
      */
-    private static Key headingKey(EntityType<?> type, @Nullable IconVariant variant, int bucket, IconStyle style, boolean arrow) {
+    private static Key headingKey(EntityType<?> type, @Nullable IconVariant variant, int bucket, IconProfile profile, boolean arrow) {
         int b = Math.floorMod(bucket, MobIconApi.YAW_BUCKETS);
-        return new Key(type, variant, ClientConfig.rotateWithHeading() ? b : 0, style,
-                arrow && ClientConfig.headingArrow() ? b : -1);
+        return new Key(type, variant, profile.rotate() ? b : 0, specOf(profile), arrow && profile.arrow() ? b : -1);
     }
 
     /**
      * The exact entry if ready, otherwise the nearest ready bucket of the same variant, otherwise the
      * ready type default; {@link Entry#PENDING}-like (all null) when there is none.
      */
-    private static Entry best(Entity entity, int bucket, IconStyle style, boolean arrow, boolean queue) {
-        Key key = keyOf(entity, bucket, style, arrow);
+    private static Entry best(Entity entity, int bucket, IconProfile profile, boolean arrow, boolean queue) {
+        Key key = keyOf(entity, bucket, profile, arrow);
         if (key == null) return Entry.FAILED;
         Entry exact = queue ? lookup(key, entity) : peek(key);
         if (exact.ready()) return exact;
         synchronized (LOCK) {
             for (int d = 1; d <= MobIconApi.YAW_BUCKETS / 2; d++) {
                 for (int sign = -1; sign <= 1; sign += 2) {
-                    Entry e = ENTRIES.get(headingKey(key.type(), key.variant(), bucket + sign * d, key.style(), arrow));
+                    Entry e = ENTRIES.get(headingKey(key.type(), key.variant(), bucket + sign * d, profile, arrow));
                     if (e != null && e.ready()) return e;
                 }
             }
-            Entry type = ENTRIES.get(new Key(key.type(), null, 0, key.style()));
+            Entry type = ENTRIES.get(new Key(key.type(), null, 0, key.spec(), -1));
             if (type != null && type.ready()) return type;
         }
         synchronized (LOCK) { return fallback(key); }
@@ -357,7 +412,7 @@ public final class MobIconCache {
      */
     public static void rerender(EntityType<?> type, @Nullable Consumer<Entry> done) {
         onRenderThread(() -> {
-            Key key = new Key(type, null, 0);
+            Key key = typeKey(type, global());
             Entry old;
             synchronized (LOCK) {
                 old = ENTRIES.remove(key);
@@ -489,19 +544,13 @@ public final class MobIconCache {
         // Needs a level to make entities in, a camera the renderers can read, and no reload in flight.
         if (mc.level == null || mc.getEntityRenderDispatcher().camera == null || mc.getOverlay() != null) return;
 
-        IconMode mode = ClientConfig.iconMode();
-        int size = ClientConfig.iconSize();
-        boolean rotate = ClientConfig.rotateWithHeading();
         if (!ClientConfig.iconSettings().equals(renderedSettings)) {
-            if (renderedMode != null) {
-                MobMapIcons.LOG.info("Icon config changed ({} {}px rotate={} -> {} {}px rotate={}, arrow={}); re-rendering icons",
-                        renderedMode, renderedSize, renderedRotate, mode, size, rotate, ClientConfig.headingArrow());
+            if (renderedSettings != null) {
+                MobMapIcons.LOG.info("Icon config changed ({} -> {}); re-rendering icons", renderedSettings.get(0),
+                        ClientConfig.iconSettings().get(0));
                 clearAll();
             }
             renderedSettings = ClientConfig.iconSettings();
-            renderedMode = mode;
-            renderedSize = size;
-            renderedRotate = rotate;
         }
 
         Runnable job;
@@ -513,12 +562,15 @@ public final class MobIconCache {
             }
         }
 
-        for (int i = 0; i < (ClientConfig.iconStyle().extraRender() ? 1 : RENDERS_PER_FRAME); i++) {
+        // Budget of render units per frame; a style that renders the model twice (chibi, head pin) costs two.
+        for (int budget = RENDERS_PER_FRAME; budget > 0; ) {
             Request request = QUEUE.pollFirst();
             if (request == null) break;
             Key key = request.key();
-            if (peek(key).state() != State.PENDING) { i--; continue; } // a duplicate; already built
-            Entry entry = build(key, request.source(), mode, size * 2, rotate);
+            if (peek(key).state() != State.PENDING) continue; // a duplicate; already built
+            budget -= key.style().extraRender() ? 2 : 1;
+            IconProfile spec = key.spec();
+            Entry entry = build(key, request.source(), spec.mode(), spec.size() * 2, spec.rotate());
             synchronized (LOCK) {
                 ENTRIES.put(key, entry);
             }
@@ -542,7 +594,7 @@ public final class MobIconCache {
         boolean shared = false; // raw/head live in BASES, which owns them
         try {
             // The eight arrow directions of one look share one model render while the model itself does not turn.
-            BaseKey baseKey = new BaseKey(key.type(), key.variant(), key.bucket(), key.style());
+            BaseKey baseKey = new BaseKey(key.type(), key.variant(), key.bucket(), key.spec());
             Base base = key.arrow() >= 0 && !rotate ? BASES.get(baseKey) : null;
             if (base != null) {
                 raw = base.raw();
@@ -551,7 +603,7 @@ public final class MobIconCache {
             } else {
                 MobIconRenderer.Frame frame = null;
                 if (rotate && (mode == IconMode.FULL_BODY || !MobIconRenderer.headCropApplies(entity))) {
-                    FrameKey fk = new FrameKey(key.type(), key.variant());
+                    FrameKey fk = new FrameKey(key.type(), key.variant(), outSize);
                     frame = FRAMES.get(fk);
                     if (frame == null) {
                         frame = MobIconRenderer.measureFrame(entity, outSize);
@@ -599,7 +651,7 @@ public final class MobIconCache {
     private static ResourceLocation resourceLocation(Key key) {
         ResourceLocation typeId = key.typeId();
         String path = RESOURCE_PREFIX + typeId.getNamespace() + "/" + typeId.getPath();
-        path += "/" + key.style().name().toLowerCase(java.util.Locale.ROOT) + "_g" + generation;
+        path += "/" + key.style().name().toLowerCase(java.util.Locale.ROOT) + "_" + key.spec().mode().name().toLowerCase(java.util.Locale.ROOT) + key.spec().size() + (key.spec().rotate() ? "r" : "") + "_g" + generation;
         if (key.variant() != null || key.bucket() != 0 || key.arrow() >= 0) {
             path += "/" + (key.variant() == null ? "default" : key.variant().hash()) + "_" + key.bucket()
                     + (key.arrow() < 0 ? "" : "_a" + key.arrow()) + "_g" + generation;

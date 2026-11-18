@@ -312,6 +312,34 @@ final class MobIconSelfTest {
             log("yawBucket mapping: " + (mapping ? "PASS" : "FAIL"));
             pass &= mapping;
         }
+        checkSections();
+    }
+
+    /** Per-map-mod config: every section answers (loaded or not) and inherit/override resolve as documented. */
+    private static void checkSections() {
+        boolean ok = true;
+        for (var mod : new dev.watdafawx.mobmapicons.api.MapMod[] {dev.watdafawx.mobmapicons.api.MapMod.FTB,
+                dev.watdafawx.mobmapicons.api.MapMod.XAERO, dev.watdafawx.mobmapicons.api.MapMod.JOURNEYMAP}) {
+            try {
+                var s = ClientConfig.sectionOf(mod);
+                var p = ClientConfig.profile(mod);
+                // Unbuilt sections must answer through the getters (defaults), never throw.
+                boolean inherit = !s.built ? p.style() == ClientConfig.iconStyle()
+                        : s.iconStyle.get() != ClientConfig.StyleChoice.INHERIT || p.style() == ClientConfig.iconStyle();
+                log("  section " + mod.id() + ": built=" + s.built + " loaded=" + ClientConfig.loaded(mod)
+                        + " style=" + p.style() + " mode=" + p.mode() + " size=" + p.size() + " own=" + ClientConfig.ownPlayer(mod));
+                ok &= inherit && s.built == ClientConfig.loaded(mod);
+            } catch (RuntimeException e) {
+                log("  section " + mod.id() + " threw " + e);
+                ok = false;
+            }
+        }
+        boolean names = true;
+        for (var st : dev.watdafawx.mobmapicons.api.IconStyle.values()) {
+            names &= ClientConfig.StyleChoice.valueOf(st.name()).resolve(null) == st;
+        }
+        log("per-mod config sections and style names: " + (ok && names ? "PASS" : "FAIL"));
+        pass &= ok && names;
     }
 
     private static void differ(String a, String b) {

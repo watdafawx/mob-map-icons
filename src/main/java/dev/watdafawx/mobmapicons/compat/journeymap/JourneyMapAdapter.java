@@ -2,6 +2,7 @@ package dev.watdafawx.mobmapicons.compat.journeymap;
 
 import dev.watdafawx.mobmapicons.ClientConfig;
 import dev.watdafawx.mobmapicons.MobMapIcons;
+import dev.watdafawx.mobmapicons.api.MapMod;
 import dev.watdafawx.mobmapicons.api.MobIconApi;
 import dev.watdafawx.mobmapicons.core.HeadingArrow;
 import dev.watdafawx.mobmapicons.core.IconPadding;
@@ -51,6 +52,8 @@ public final class JourneyMapAdapter implements IClientPlugin {
     @Override
     public void initialize(IClientAPI api) {
         ClientEventRegistry.ENTITY_RADAR_UPDATE_EVENT.subscribe(getModId(), JourneyMapAdapter::update);
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(
+                (net.neoforged.neoforge.client.event.ClientTickEvent.Post e) -> OwnArrow.tick());
     }
 
     private static void update(EntityRadarUpdateEvent event) {
@@ -62,7 +65,7 @@ public final class JourneyMapAdapter implements IClientPlugin {
         var entity = wrapped.getEntityRef().get();
         if (event.getType() == EntityRadarUpdateEvent.EntityType.PLAYER) {
             if (entity instanceof net.minecraft.client.player.RemotePlayer other) {
-                if (ClientConfig.players()) updatePlayer(event, other);
+                if (ClientConfig.players(MapMod.JOURNEYMAP)) updatePlayer(event, other);
                 else restoreFace(other);
             }
             return;
@@ -83,13 +86,13 @@ public final class JourneyMapAdapter implements IClientPlugin {
         }
 
         int bucket = 0;
-        if (MobIconApi.usesHeading()) {
+        if (MobIconApi.usesHeading(MapMod.JOURNEYMAP)) {
             bucket = MobIconApi.yawBucket(mob.yBodyRot + (float) minimapRotation(ui));
         }
         // JourneyMap's own heading arrow (its locator, turned by the mob's yaw) makes ours a double: skip ours then.
-        boolean ourArrow = MobIconApi.headingArrow() && !journeyMapShowsMobHeading(ui);
-        FrameRule rule = FrameRule.of(ClientConfig.iconStyle(), ClientConfig.journeyMapFrame(),
-                MobIconApi.rotateWithHeading() || ourArrow, FrameHider.canHideFill());
+        boolean ourArrow = MobIconApi.headingArrow(MapMod.JOURNEYMAP) && !journeyMapShowsMobHeading(ui);
+        FrameRule rule = FrameRule.of(ClientConfig.style(MapMod.JOURNEYMAP), ClientConfig.journeyMapFrame(),
+                MobIconApi.rotateWithHeading(MapMod.JOURNEYMAP) || ourArrow, FrameHider.canHideFill());
         ResourceLocation icon = paddedIcon(mob, bucket, rule, ourArrow);
         // JourneyMap clears this override each radar update. Never hand it a pending resource.
         if (icon != null) {
@@ -133,12 +136,12 @@ public final class JourneyMapAdapter implements IClientPlugin {
 
     private static void updatePlayer(EntityRadarUpdateEvent event, net.minecraft.client.player.RemotePlayer player) {
         int bucket = 0;
-        if (MobIconApi.rotateWithHeading()) {
+        if (MobIconApi.rotateWithHeading(MapMod.JOURNEYMAP)) {
             bucket = MobIconApi.yawBucket(player.yBodyRot + (float) minimapRotation(event.getActiveUiState()));
         }
         // No baked arrow on a player's face: JourneyMap draws its own heading marker for players.
-        ResourceLocation plain = MobIconApi.getResourceIcon(player, bucket, ClientConfig.iconStyle(), false); // also queues the render
-        byte[] png = plain == null ? null : MobIconApi.getPng(player, bucket, ClientConfig.iconStyle(), false);
+        ResourceLocation plain = MobIconApi.getResourceIcon(player, bucket, ClientConfig.profile(MapMod.JOURNEYMAP), false); // also queues the render
+        byte[] png = plain == null ? null : MobIconApi.getPng(player, bucket, ClientConfig.profile(MapMod.JOURNEYMAP), false);
         var map = png == null ? null : faces();
         if (map == null) return;
         // The square box JourneyMap draws round a face is sized for its 16 px face, not for our skin model.
@@ -196,8 +199,8 @@ public final class JourneyMapAdapter implements IClientPlugin {
         // fitting the marker, and leaves it small and under the marker's border); it is drawn over the fitted icon.
         boolean overlay = arrow && !rule.hideFrame();
         boolean baked = arrow && !overlay;
-        ResourceLocation plain = MobIconApi.getResourceIcon(mob, bucket, rule.body(), baked); // also queues the render
-        byte[] png = plain == null ? null : MobIconApi.getPng(mob, bucket, rule.body(), baked);
+        ResourceLocation plain = MobIconApi.getResourceIcon(mob, bucket, ClientConfig.profile(MapMod.JOURNEYMAP).withStyle(rule.body()), baked); // also queues the render
+        byte[] png = plain == null ? null : MobIconApi.getPng(mob, bucket, ClientConfig.profile(MapMod.JOURNEYMAP).withStyle(rule.body()), baked);
         if (png == null) return null;
         CRC32 crc = new CRC32();
         crc.update(png);

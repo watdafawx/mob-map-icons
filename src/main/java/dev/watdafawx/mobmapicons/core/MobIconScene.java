@@ -205,7 +205,7 @@ final class MobIconScene {
                     net.neoforged.fml.ModList.get().getModContainerById(dev.watdafawx.mobmapicons.MobMapIcons.MODID).orElseThrow(), mc.screen));
             case "log" -> MobMapIcons.LOG.info("scene: {}", arg);
             case "players" -> spawnPlayers(mc);
-            case "opts" -> QuickOptions.toggle();
+            case "opts" -> { if (arg.isEmpty()) QuickOptions.toggle(); else QuickOptions.openOn(arg); }
             case "bindkey" -> {
                 mc.options.setKey(QuickOptions.KEY, com.mojang.blaze3d.platform.InputConstants.getKey("key.keyboard." + arg));
                 net.minecraft.client.KeyMapping.resetMapping();
@@ -215,22 +215,44 @@ final class MobIconScene {
                 MobIconCache.checkConfig(); }
             case "cfgplayers" -> dev.watdafawx.mobmapicons.ClientConfig.PLAYERS.set(Boolean.parseBoolean(arg));
             case "cfg" -> {
-                boolean on = Boolean.parseBoolean(n.length > 1 ? n[1] : "");
-                switch (n[0]) {
-                    case "ftbChunks" -> dev.watdafawx.mobmapicons.ClientConfig.FTB_CHUNKS_ENABLED.set(on);
-                    case "xaero" -> dev.watdafawx.mobmapicons.ClientConfig.XAERO_ENABLED.set(on);
-                    case "journeymap" -> dev.watdafawx.mobmapicons.ClientConfig.JOURNEYMAP_ENABLED.set(on);
+                String key = n[0], val = n.length > 1 ? n[1] : "";
+                boolean on = Boolean.parseBoolean(val);
+                int dot = key.indexOf('.');
+                if (dot > 0) {
+                    // Per map mod: cfg ftb.style OUTLINE | xaero.mode HEAD | journeymap.size 24 | ftb.own true
+                    var sec = dev.watdafawx.mobmapicons.ClientConfig.sectionOf(switch (key.substring(0, dot)) {
+                        case "ftb" -> dev.watdafawx.mobmapicons.api.MapMod.FTB;
+                        case "xaero" -> dev.watdafawx.mobmapicons.api.MapMod.XAERO;
+                        default -> dev.watdafawx.mobmapicons.api.MapMod.JOURNEYMAP;
+                    });
+                    switch (key.substring(dot + 1)) {
+                        case "enabled" -> sec.enabled.set(on);
+                        case "style" -> sec.iconStyle.set(dev.watdafawx.mobmapicons.ClientConfig.StyleChoice.valueOf(val.toUpperCase(java.util.Locale.ROOT)));
+                        case "mode" -> sec.iconMode.set(dev.watdafawx.mobmapicons.ClientConfig.ModeChoice.valueOf(val.toUpperCase(java.util.Locale.ROOT)));
+                        case "size" -> sec.iconSize.set(Integer.parseInt(val));
+                        case "own" -> { if (sec.ownPlayer != null) sec.ownPlayer.set(on); }
+                        case "players" -> sec.players.set(dev.watdafawx.mobmapicons.ClientConfig.Tri.valueOf(val.toUpperCase(java.util.Locale.ROOT)));
+                        case "rotate" -> { if (sec.rotateWithHeading != null) sec.rotateWithHeading.set(dev.watdafawx.mobmapicons.ClientConfig.Tri.valueOf(val.toUpperCase(java.util.Locale.ROOT))); }
+                        case "arrow" -> { if (sec.headingArrow != null) sec.headingArrow.set(dev.watdafawx.mobmapicons.ClientConfig.Tri.valueOf(val.toUpperCase(java.util.Locale.ROOT))); }
+                        case "frame" -> sec.journeymapFrame.set(dev.watdafawx.mobmapicons.ClientConfig.JourneyMapFrame.valueOf(val.toUpperCase(java.util.Locale.ROOT)));
+                        default -> MobMapIcons.LOG.warn("scene: unknown cfg {}", key);
+                    }
+                    MobIconCache.checkConfig();
+                } else switch (key) {
+                    case "ftbChunks" -> dev.watdafawx.mobmapicons.ClientConfig.FTB.enabled.set(on);
+                    case "xaero" -> dev.watdafawx.mobmapicons.ClientConfig.XAERO.enabled.set(on);
+                    case "journeymap" -> dev.watdafawx.mobmapicons.ClientConfig.JOURNEYMAP.enabled.set(on);
                     case "rotate" -> dev.watdafawx.mobmapicons.ClientConfig.ROTATE_WITH_HEADING.set(on);
                     case "arrow" -> dev.watdafawx.mobmapicons.ClientConfig.HEADING_ARROW.set(on);
                     case "tint" -> dev.watdafawx.mobmapicons.ClientConfig.TINT_BY_HOSTILITY.set(on);
                     case "mode" -> dev.watdafawx.mobmapicons.ClientConfig.ICON_MODE.set(
-                            dev.watdafawx.mobmapicons.api.IconMode.valueOf(n[1]));
-                    case "size" -> dev.watdafawx.mobmapicons.ClientConfig.ICON_SIZE.set(Integer.parseInt(n[1]));
+                            dev.watdafawx.mobmapicons.api.IconMode.valueOf(val));
+                    case "size" -> dev.watdafawx.mobmapicons.ClientConfig.ICON_SIZE.set(Integer.parseInt(val));
                     case "style" -> dev.watdafawx.mobmapicons.ClientConfig.ICON_STYLE.set(
-                            dev.watdafawx.mobmapicons.api.IconStyle.valueOf(n[1]));
-                    case "jmframe" -> dev.watdafawx.mobmapicons.ClientConfig.JOURNEYMAP_FRAME.set(
-                            dev.watdafawx.mobmapicons.ClientConfig.JourneyMapFrame.valueOf(n[1]));
-                    default -> MobMapIcons.LOG.warn("scene: unknown cfg {}", n[0]);
+                            dev.watdafawx.mobmapicons.api.IconStyle.valueOf(val));
+                    case "jmframe" -> dev.watdafawx.mobmapicons.ClientConfig.JOURNEYMAP.journeymapFrame.set(
+                            dev.watdafawx.mobmapicons.ClientConfig.JourneyMapFrame.valueOf(val));
+                    default -> MobMapIcons.LOG.warn("scene: unknown cfg {}", key);
                 }
             }
             default -> MobMapIcons.LOG.warn("scene: unknown step {}", line);

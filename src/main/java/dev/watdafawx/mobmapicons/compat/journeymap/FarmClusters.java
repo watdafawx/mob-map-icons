@@ -2,6 +2,7 @@ package dev.watdafawx.mobmapicons.compat.journeymap;
 
 import dev.watdafawx.mobmapicons.ClientConfig;
 import dev.watdafawx.mobmapicons.MobMapIcons;
+import dev.watdafawx.mobmapicons.api.MapMod;
 import dev.watdafawx.mobmapicons.api.MobIconApi;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -68,7 +69,7 @@ final class FarmClusters {
     }
 
     private static long configSignature() {
-        return (ClientConfig.farmMode() ? 1L : 0L) | ((long) ClientConfig.maxIcons() << 1)
+        return (ClientConfig.farm(MapMod.JOURNEYMAP) ? 1L : 0L) | ((long) ClientConfig.maxIcons() << 1)
                 | ((long) ClientConfig.clusterRadius() << 20) | ((long) ClientConfig.clusterMinCount() << 28);
     }
 
@@ -84,7 +85,7 @@ final class FarmClusters {
     }
 
     private Map<Integer, Verdict> build(Minecraft mc, double blockSize) {
-        boolean farm = ClientConfig.farmMode();
+        boolean farm = ClientConfig.farm(MapMod.JOURNEYMAP);
         int max = ClientConfig.maxIcons();
         if (!farm && max <= 0) return Map.of();
 
@@ -223,7 +224,7 @@ final class FarmClusters {
 
     /** The icon API's variant for this mob: its resource path minus the heading and generation suffix. */
     private static String variantOf(Mob m) {
-        var res = MobIconApi.getResourceIcon(m, MobIconApi.yawBucket(m.yBodyRot), ClientConfig.iconStyle(), false);
+        var res = MobIconApi.getResourceIcon(m, MobIconApi.yawBucket(m.yBodyRot), ClientConfig.profile(MapMod.JOURNEYMAP), false);
         return res == null ? "?" : VARIANT_SUFFIX.matcher(res.getPath()).replaceFirst("");
     }
 

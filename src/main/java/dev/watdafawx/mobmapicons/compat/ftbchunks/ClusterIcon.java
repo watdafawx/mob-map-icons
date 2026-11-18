@@ -6,6 +6,7 @@ import dev.ftb.mods.ftblibrary.ui.BaseScreen;
 import dev.ftb.mods.ftblibrary.ui.input.Key;
 import dev.ftb.mods.ftblibrary.ui.input.MouseButton;
 import dev.ftb.mods.ftblibrary.util.TooltipList;
+import dev.watdafawx.mobmapicons.api.MapMod;
 import dev.watdafawx.mobmapicons.api.MobIconApi;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -136,7 +137,7 @@ final class ClusterIcon implements MapIcon {
     public void draw(MapType mapType, GuiGraphics graphics, int x, int y, int w, int h, boolean outsideVisibleArea, int iconAlpha) {
         long t0 = System.nanoTime();
         Entity e = rep();
-        ResourceLocation texture = MobIconApi.getIcon(e);
+        ResourceLocation texture = MobIconApi.getIcon(e, MapMod.FTB);
         if (texture == null) {
             original.draw(mapType, graphics, x, y, w, h, outsideVisibleArea, iconAlpha);
         } else {

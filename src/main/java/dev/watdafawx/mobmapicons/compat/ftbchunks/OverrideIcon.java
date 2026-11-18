@@ -6,6 +6,7 @@ import dev.ftb.mods.ftblibrary.ui.BaseScreen;
 import dev.ftb.mods.ftblibrary.ui.input.Key;
 import dev.ftb.mods.ftblibrary.ui.input.MouseButton;
 import dev.ftb.mods.ftblibrary.util.TooltipList;
+import dev.watdafawx.mobmapicons.api.MapMod;
 import dev.watdafawx.mobmapicons.api.MobIconApi;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
@@ -28,10 +29,17 @@ import net.minecraft.world.phys.Vec3;
 final class OverrideIcon implements MapIcon {
     private final MapIcon original;
     private final Entity entity;
+    /** Whether the heading arrow is drawn into the icon (off where FTB keeps its own pointer next to it). */
+    private final boolean arrow;
 
     OverrideIcon(MapIcon original, Entity entity) {
+        this(original, entity, true);
+    }
+
+    OverrideIcon(MapIcon original, Entity entity, boolean arrow) {
         this.original = original;
         this.entity = entity;
+        this.arrow = arrow;
     }
 
     @Override
@@ -41,7 +49,7 @@ final class OverrideIcon implements MapIcon {
         // built with. Binding a freed id makes the texture manager try to load it from disk (a WARN per
         // mob and a missing-texture frame), so fall back to FTB's own icon until ours is rendered again.
         long t0 = System.nanoTime();
-        ResourceLocation texture = MobIconApi.getIcon(entity, IconDraw.bucket(entity, mapType));
+        ResourceLocation texture = MobIconApi.getIcon(entity, IconDraw.bucket(entity, mapType), MapMod.FTB, arrow);
         if (texture == null) {
             original.draw(mapType, graphics, x, y, w, h, outsideVisibleArea, iconAlpha);
         } else {

@@ -229,6 +229,80 @@ public final class MobIconApi {
     }
 
     // ---------------------------------------------------------------------------------------------
+    // Per map mod. Every lookup above uses the global look; these use the look {@code mod}'s config
+    // section asks for (style, mode, size, heading overrides, INHERIT = global). Icons are cached per
+    // look, so several map mods can show different styles at once. {@link MapMod#GLOBAL} equals the
+    // lookups above.
+
+    /** The effective look on {@code mod}: its overrides applied over the global config. */
+    public static IconProfile profile(MapMod mod) {
+        return ClientConfig.profile(mod);
+    }
+
+    @Nullable
+    public static ResourceLocation getIcon(EntityType<?> type, MapMod mod) {
+        return MobIconCache.getIcon(type, mod);
+    }
+
+    public static boolean isReady(EntityType<?> type, MapMod mod) {
+        return MobIconCache.isReady(type, mod);
+    }
+
+    public static byte @Nullable [] getPng(EntityType<?> type, MapMod mod) {
+        return MobIconCache.getPng(type, mod);
+    }
+
+    @Nullable
+    public static ResourceLocation getResourceIcon(EntityType<?> type, MapMod mod) {
+        return MobIconCache.getResourceIcon(type, mod);
+    }
+
+    /** The entity's icon on {@code mod}, facing the viewer, no heading arrow. */
+    @Nullable
+    public static ResourceLocation getIcon(Entity entity, MapMod mod) {
+        return MobIconCache.getIcon(entity, mod);
+    }
+
+    /** The entity's icon on {@code mod} at heading bucket {@code yawBucket}. */
+    @Nullable
+    public static ResourceLocation getIcon(Entity entity, int yawBucket, MapMod mod) {
+        return MobIconCache.getIcon(entity, yawBucket, mod);
+    }
+
+    /** The entity's icon on {@code mod} at a heading, with or without the heading arrow. */
+    @Nullable
+    public static ResourceLocation getIcon(Entity entity, int yawBucket, MapMod mod, boolean arrow) {
+        return MobIconCache.getIcon(entity, yawBucket, mod, arrow);
+    }
+
+    /** PNG of an icon in an explicit {@link #profile(MapMod) profile}, e.g. a map mod's profile with another style. Does not queue. */
+    public static byte @Nullable [] getPng(Entity entity, int yawBucket, IconProfile profile, boolean arrow) {
+        return MobIconCache.getPng(entity, yawBucket, profile, arrow);
+    }
+
+    /** Resource location of an icon in an explicit profile. Queues a render. */
+    @Nullable
+    public static ResourceLocation getResourceIcon(Entity entity, int yawBucket, IconProfile profile, boolean arrow) {
+        return MobIconCache.getResourceIcon(entity, yawBucket, profile, arrow);
+    }
+
+    public static boolean rotateWithHeading(MapMod mod) {
+        return ClientConfig.rotate(mod);
+    }
+
+    public static boolean headingArrow(MapMod mod) {
+        return ClientConfig.arrow(mod);
+    }
+
+    public static boolean usesHeading(MapMod mod) {
+        return ClientConfig.usesHeading(mod);
+    }
+
+    public static int iconSize(MapMod mod) {
+        return ClientConfig.size(mod);
+    }
+
+    // ---------------------------------------------------------------------------------------------
     // Misc
 
     /**

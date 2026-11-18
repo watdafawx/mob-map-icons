@@ -9,6 +9,7 @@ import com.mojang.blaze3d.vertex.VertexFormat;
 import dev.ftb.mods.ftbchunks.api.client.icon.MapType;
 import dev.ftb.mods.ftbchunks.client.FTBChunksClientConfig;
 import dev.watdafawx.mobmapicons.ClientConfig;
+import dev.watdafawx.mobmapicons.api.MapMod;
 import dev.watdafawx.mobmapicons.api.MobIconApi;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -48,15 +49,16 @@ final class IconDraw {
 
     /**
      * Heading bucket for this entity on this map: 0 unless the icon uses a heading (it turns, or it has a
-     * heading arrow, see {@link MobIconApi#usesHeading()}). North-up maps (the
+     * heading arrow, see {@code MobIconApi.usesHeading(MapMod.FTB)}). North-up maps (the
      * large map, a locked minimap) use the body yaw as is; a rotating minimap has the player's look
      * direction at the top, so the yaw is taken relative to the player.
      */
     static int bucket(Entity entity, MapType mapType) {
-        if (!MobIconApi.usesHeading()) {
+        if (!MobIconApi.usesHeading(MapMod.FTB)) {
             return 0;
         }
-        float yaw = entity instanceof LivingEntity living ? living.yBodyRot : entity.getYRot();
+        float yaw = entity instanceof net.minecraft.client.player.LocalPlayer ? entity.getYRot()
+                : entity instanceof LivingEntity living ? living.yBodyRot : entity.getYRot();
         if (mapType.isMinimap() && minimapRotates()) {
             var player = Minecraft.getInstance().player;
             if (player != null) {
@@ -76,7 +78,7 @@ final class IconDraw {
      * restores the state FTB expects.
      */
     static void quad(GuiGraphics graphics, ResourceLocation texture, Entity tintSource, int x, int y, int w, int h, int iconAlpha) {
-        float size = MobIconApi.iconSize();
+        float size = MobIconApi.iconSize(MapMod.FTB);
         int r = tint(tintSource, 0), g = tint(tintSource, 1), b = tint(tintSource, 2);
 
         // Raw quad below: draw anything queued first so layer order holds. GuiGraphics.flush() always
@@ -124,11 +126,11 @@ final class IconDraw {
         // GUI pixels per cell unit under the current pose (icons are never rotated, only positioned).
         float guiPerUnit = Math.abs(pose.last().pose().m00());
         if (guiPerUnit > 1e-4f) {
-            float iconGui = CELL * MobIconApi.iconSize() / ClientConfig.DEFAULT_ICON_SIZE * guiPerUnit;
+            float iconGui = CELL * MobIconApi.iconSize(MapMod.FTB) / ClientConfig.DEFAULT_ICON_SIZE * guiPerUnit;
             // Glyph cell is 9 font px tall; aim for under half the icon, never under 5 or over 8 GUI px.
             float textGui = Math.max(5f, Math.min(8f, iconGui * 0.45f));
             float k = textGui / 9f / guiPerUnit; // cell units per font pixel
-            float drawn = CELL * MobIconApi.iconSize() / ClientConfig.DEFAULT_ICON_SIZE;
+            float drawn = CELL * MobIconApi.iconSize(MapMod.FTB) / ClientConfig.DEFAULT_ICON_SIZE;
             float hi = (CELL + drawn) / 2f;
             float tw = font.width(text) * k;
             pose.translate(hi - tw + 1.5f * k, hi - 8f * k, 0f);

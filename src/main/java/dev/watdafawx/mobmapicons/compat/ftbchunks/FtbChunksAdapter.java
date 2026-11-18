@@ -91,6 +91,7 @@ public final class FtbChunksAdapter {
 
     private static void onClientTick(ClientTickEvent.Post event) {
         FtbPerf.tick();
+        OwnFace.tick();
         if (!ClientConfig.ftbChunksEnabled() || EVENT_ICONS == null || ICON_ENTITY == null) {
             return;
         }

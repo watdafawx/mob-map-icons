@@ -5,6 +5,7 @@ import dev.watdafawx.mobmapicons.ClientConfig;
 import dev.watdafawx.mobmapicons.MobMapIcons;
 import dev.watdafawx.mobmapicons.api.IconMode;
 import dev.watdafawx.mobmapicons.api.IconStyle;
+import dev.watdafawx.mobmapicons.api.MapMod;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -91,6 +92,7 @@ public final class QuickOptions {
             return;
         }
         if (mc.level == null) return;
+        ctx = detect(mc.screen);
         if (mc.screen == null) mc.setScreen(new HostScreen());
         owner = mc.screen;
         open = true;
@@ -291,20 +293,84 @@ public final class QuickOptions {
         }
     }
 
+    /** Which section the panel edits: GLOBAL, or one loaded map mod. Picked from the open screen, switchable by tab. */
+    private static MapMod ctx = MapMod.GLOBAL;
+
+    private static List<MapMod> loadedMods() {
+        List<MapMod> out = new ArrayList<>();
+        for (MapMod m : new MapMod[] {MapMod.FTB, MapMod.XAERO, MapMod.JOURNEYMAP}) {
+            if (ClientConfig.loaded(m)) out.add(m);
+        }
+        return out;
+    }
+
+    /** The map mod whose screen is open (by class name, so no map mod is needed to compile), else the first loaded one. */
+    static MapMod detect(Screen screen) {
+        String n = screen == null ? "" : screen.getClass().getName();
+        MapMod found = null;
+        if (n.startsWith("dev.ftb.mods.ftbchunks.")) found = MapMod.FTB;
+        else if (n.startsWith("journeymap.client.ui.")) found = MapMod.JOURNEYMAP;
+        else if (n.startsWith("xaero.map.") || n.startsWith("xaero.common.gui.") || n.startsWith("xaero.hud.")
+                || n.startsWith("xaero.lib.client.gui.")) found = MapMod.XAERO;
+        if (found != null && ClientConfig.loaded(found)) return found;
+        if (screen == null || screen instanceof HostScreen) {
+            if (loadedMods().contains(ctx)) return ctx;
+            List<MapMod> l = loadedMods();
+            return l.isEmpty() ? MapMod.GLOBAL : l.get(0);
+        }
+        return MapMod.GLOBAL;
+    }
+
+    /** For the dev harness: open the panel on a given section. */
+    public static void openOn(String mod) {
+        if (open) close();
+        toggle();
+        for (MapMod m : MapMod.values()) {
+            if (m.id().equals(mod) && (m == MapMod.GLOBAL || ClientConfig.loaded(m))) {
+                ctx = m;
+                rows = null;
+            }
+        }
+    }
+
     private static void build() {
         if (rows != null) return;
         rows = new ArrayList<>();
-        rows.add(new Cycle<>("style", ClientConfig.ICON_STYLE, IconStyle.values()));
-        rows.add(new Cycle<>("mode", ClientConfig.ICON_MODE, IconMode.values()));
-        rows.add(new IntSlider("iconSize", ClientConfig.ICON_SIZE, 8, 64, 1));
-        rows.add(new Toggle("rotateWithHeading", ClientConfig.ROTATE_WITH_HEADING));
-        rows.add(new Toggle("headingArrow", ClientConfig.HEADING_ARROW));
-        rows.add(new Toggle("farmMode", ClientConfig.FARM_MODE));
-        rows.add(new Toggle("players", ClientConfig.PLAYERS));
-        rows.add(new Toggle("tintByHostility", ClientConfig.TINT_BY_HOSTILITY));
-        rows.add(new DoubleSlider("xaeroScale", ClientConfig.XAERO_SCALE, 0.25, 1.0, 0.05));
-        rows.add(new IntSlider("maxIcons", ClientConfig.MAX_ICONS, 0, 1000, 10));
+        if (!loadedMods().isEmpty()) rows.add(new Tabs());
+        if (ctx == MapMod.GLOBAL) {
+            rows.add(new Cycle<>("style", ClientConfig.ICON_STYLE, IconStyle.values()));
+            rows.add(new Cycle<>("mode", ClientConfig.ICON_MODE, IconMode.values()));
+            rows.add(new IntSlider("iconSize", ClientConfig.ICON_SIZE, 8, 64, 1, null));
+            rows.add(new Toggle("rotateWithHeading", ClientConfig.ROTATE_WITH_HEADING));
+            rows.add(new Toggle("headingArrow", ClientConfig.HEADING_ARROW));
+            rows.add(new Toggle("farmMode", ClientConfig.FARM_MODE));
+            rows.add(new Toggle("players", ClientConfig.PLAYERS));
+            rows.add(new Toggle("tintByHostility", ClientConfig.TINT_BY_HOSTILITY));
+            rows.add(new IntSlider("maxIcons", ClientConfig.MAX_ICONS, 0, 1000, 10, null));
+        } else {
+            ClientConfig.Section s = ClientConfig.sectionOf(ctx);
+            rows.add(new Toggle("enabled", s.enabled));
+            rows.add(new Cycle<>("style", s.iconStyle, ClientConfig.StyleChoice.values()));
+            rows.add(new Cycle<>("mode", s.iconMode, ClientConfig.ModeChoice.values()));
+            rows.add(new IntSlider("iconSize", s.iconSize, 0, 64, 1, "inherit"));
+            if (s.rotateWithHeading != null) rows.add(new Cycle<>("tri.rotateWithHeading", s.rotateWithHeading, ClientConfig.Tri.values()));
+            if (s.headingArrow != null) rows.add(new Cycle<>("tri.headingArrow", s.headingArrow, ClientConfig.Tri.values()));
+            if (s.farmMode != null) rows.add(new Cycle<>("tri.farmMode", s.farmMode, ClientConfig.Tri.values()));
+            rows.add(new Cycle<>("tri.players", s.players, ClientConfig.Tri.values()));
+            if (s.ownPlayer != null) rows.add(new Toggle("ownPlayer", s.ownPlayer));
+            if (s.xaeroScale != null) rows.add(new DoubleSlider("xaeroScale", s.xaeroScale, 0.25, 1.0, 0.05));
+            if (s.journeymapFrame != null) rows.add(new Cycle<>("journeymapFrame", s.journeymapFrame, ClientConfig.JourneyMapFrame.values()));
+            rows.add(new Reset());
+            rows.add(new Heading("native"));
+            List<MapModOptions.Entry> own = MapModOptions.of(ctx);
+            for (MapModOptions.Entry e : own) rows.add(new Action(e));
+            if (own.isEmpty()) rows.add(new Heading(ctx == MapMod.XAERO ? "nativeXaero" : "nativeNone"));
+        }
         rows.add(new Buttons());
+    }
+
+    private static void rebuild() {
+        rows = null;
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -428,12 +494,114 @@ public final class QuickOptions {
         }
     }
 
+    /** Tab bar: Global plus one tab per loaded map mod. */
+    private static final class Tabs extends Row {
+        private List<MapMod> tabs() {
+            List<MapMod> t = new ArrayList<>();
+            t.add(MapMod.GLOBAL);
+            t.addAll(loadedMods());
+            return t;
+        }
+
+        @Override
+        void draw(GuiGraphics g, Minecraft mc, int x, int y, int w, double mx, double my) {
+            List<MapMod> t = tabs();
+            int cell = w / t.size();
+            for (int i = 0; i < t.size(); i++) {
+                int cx = x + i * cell, cw = i == t.size() - 1 ? w - i * cell : cell - 1;
+                boolean sel = t.get(i) == ctx;
+                g.fill(cx, y, cx + cw, y + ROW, sel ? 0xFF4A6FB0 : hover(cx, y, cw, mx, my) ? 0xFF58587A : 0xFF3A3A52);
+                text(g, mc, Component.translatable("mob_map_icons.options.tab." + t.get(i).id()), cx, y, cw);
+            }
+        }
+
+        @Override
+        void press(int x, int w, double mx, int button) {
+            List<MapMod> t = tabs();
+            int cell = w / t.size();
+            ctx = t.get(Math.max(0, Math.min(t.size() - 1, (int) ((mx - x) / cell))));
+            rebuild();
+        }
+    }
+
+    /** A small dim caption row. */
+    private static final class Heading extends Row {
+        final String key;
+
+        Heading(String key) {
+            this.key = key;
+        }
+
+        @Override
+        void draw(GuiGraphics g, Minecraft mc, int x, int y, int w, double mx, double my) {
+            g.drawString(mc.font, Component.translatable("mob_map_icons.options." + key), x + 2, y + 4, 0xFFA0A0B8, false);
+        }
+
+        @Override
+        void press(int x, int w, double mx, int button) {}
+    }
+
+    /** "Inherit global": puts every override of this map mod back to inherit. */
+    private static final class Reset extends Row {
+        @Override
+        void draw(GuiGraphics g, Minecraft mc, int x, int y, int w, double mx, double my) {
+            box(g, x, y, w, hover(x, y, w, mx, my));
+            text(g, mc, Component.translatable("mob_map_icons.options.inheritAll"), x, y, w);
+        }
+
+        @Override
+        void press(int x, int w, double mx, int button) {
+            ClientConfig.Section s = ClientConfig.sectionOf(ctx);
+            s.iconStyle.set(ClientConfig.StyleChoice.INHERIT);
+            s.iconMode.set(ClientConfig.ModeChoice.INHERIT);
+            s.iconSize.set(0);
+            s.players.set(ClientConfig.Tri.INHERIT);
+            if (s.rotateWithHeading != null) s.rotateWithHeading.set(ClientConfig.Tri.INHERIT);
+            if (s.headingArrow != null) s.headingArrow.set(ClientConfig.Tri.INHERIT);
+            if (s.farmMode != null) s.farmMode.set(ClientConfig.Tri.INHERIT);
+            changed();
+            commit();
+        }
+    }
+
+    /** One of the map mod's own options (see {@link MapModOptions}); every call is guarded. */
+    private static final class Action extends Row {
+        final MapModOptions.Entry entry;
+
+        Action(MapModOptions.Entry entry) {
+            this.entry = entry;
+        }
+
+        @Override
+        void draw(GuiGraphics g, Minecraft mc, int x, int y, int w, double mx, double my) {
+            box(g, x, y, w, hover(x, y, w, mx, my));
+            String v;
+            try {
+                v = entry.value().get();
+            } catch (RuntimeException e) {
+                v = "?";
+            }
+            text(g, mc, Component.translatable("mob_map_icons.options.native." + entry.key(), v), x, y, w);
+        }
+
+        @Override
+        void press(int x, int w, double mx, int button) {
+            try {
+                entry.press().accept(button == 1 ? -1 : 1);
+            } catch (RuntimeException e) {
+                MobMapIcons.LOG.debug("Quick options: native option failed", e);
+            }
+        }
+    }
+
     private static final class IntSlider extends Slider {
         final ModConfigSpec.IntValue value;
+        final String zeroLabel;
 
-        IntSlider(String key, ModConfigSpec.IntValue value, int min, int max, int step) {
+        IntSlider(String key, ModConfigSpec.IntValue value, int min, int max, int step, String zeroLabel) {
             super(key, min, max, step);
             this.value = value;
+            this.zeroLabel = zeroLabel;
         }
 
         @Override
@@ -443,7 +611,7 @@ public final class QuickOptions {
         void set(double v) { value.set((int) Math.round(v)); }
 
         @Override
-        String show() { return Integer.toString(value.get()); }
+        String show() { return value.get() == 0 && zeroLabel != null ? zeroLabel : Integer.toString(value.get()); }
     }
 
     private static final class DoubleSlider extends Slider {

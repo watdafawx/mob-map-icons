@@ -2,6 +2,7 @@ package dev.watdafawx.mobmapicons.compat.xaero;
 
 import dev.watdafawx.mobmapicons.ClientConfig;
 import dev.watdafawx.mobmapicons.MobMapIcons;
+import dev.watdafawx.mobmapicons.api.MapMod;
 import dev.watdafawx.mobmapicons.api.MobIconApi;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
@@ -90,7 +91,7 @@ final class XaeroSync {
             if (entity instanceof net.minecraft.world.entity.LivingEntity
                     && !(entity instanceof net.minecraft.world.entity.player.Player)
                     && seen.add(entity.getType())) {
-                MobIconApi.getIcon(entity.getType());
+                MobIconApi.getIcon(entity.getType(), MapMod.XAERO);
             }
         }
     }
@@ -121,7 +122,7 @@ final class XaeroSync {
             // Players keep Xaero's own head icons.
             if (id.equals(PLAYER) || ClientConfig.isBlacklisted(id)) continue;
             var old = previous.get(id);
-            byte[] png = MobIconApi.isReady(type) ? MobIconApi.getPng(type) : null;
+            byte[] png = MobIconApi.isReady(type, MapMod.XAERO) ? MobIconApi.getPng(type, MapMod.XAERO) : null;
             if (png == null) {
                 if (old != null) entries.put(id, old);
             } else if (old != null && old.matches(png, scale)) {
