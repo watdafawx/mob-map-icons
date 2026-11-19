@@ -1,7 +1,9 @@
 # Changelog
 
-## 0.4.3 (unreleased)
+## 0.4.3
 
+- Heading arrow: a small arrow on each icon shows the way the mob faces (FTB Chunks, JourneyMap; `headingArrow`, on by default). `rotateWithHeading` is now off by default.
+- JourneyMap: fixed the map mod's own mob scale and self scale rows (they now change the minimap live), and `colorSelf` is restored so the own icon never leaves it white in JourneyMap's config.
 - Per-map-mod config: new `[ftb]`, `[xaero]` and `[journeymap]` sections. Each overrides style, mode, size, rotate
   with heading, heading arrow, farm mode and other players for that map mod only (default: inherit the global value), so
   FTB Chunks can show OUTLINE while JourneyMap shows BADGE at the same time. `xaeroScale` moved to `[xaero]`,
