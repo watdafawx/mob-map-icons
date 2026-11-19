@@ -227,3 +227,13 @@ fix043-config-screen.png             The NeoForge config screen: global options 
                                      each other, map mods as one-level "Edit..." entries.
 
 The old `docs/screenshots/*` images of 0.4.3 and earlier show the single `iconSize` and the long scrolling panel.
+
+0.4.4 limits (branch limits)
+limits-xaero-worldmap-sizes.png    Xaero World Map, one run: `[xaero] iconSizeFullscreen` 8, 16, 24 (left to right) at the same zoom.
+                                   Each is its own sprite set, swapped in when the World Map opened.
+limits-jm-view-toggle.png          Panel JM tab over JourneyMap's full-screen map: "JM rows edit: full-screen map" (the new button);
+                                   JM mobs / players / auto icons now edit the full-screen map's values.
+limits-jm-dots-vs-icons.png        JourneyMap full-screen map, style OUTLINE. Left: Mob Display Dots (the user's value). Right: autoIconDisplay,
+                                   Icons: full-size outlined icons, like the other maps. JourneyMap needs a few seconds to redraw its
+                                   radar after a switch; shot taken after that.
+

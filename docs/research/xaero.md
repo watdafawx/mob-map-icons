@@ -108,3 +108,13 @@ Version-brittle bits: package names `xaero.hud.*` vs `xaero.common.*` (both pres
 
 ## Recommendation
 Resource route first: ship `assets/xaerominimap/entity/icon/definition/<ns>/<entity>.json` + `assets/xaerominimap/entity/icon/sprite/*.png` from the client mod, in a high-priority built-in pack (AddPackFindersEvent TOP) so it also replaces Xaero's shipped JSONs. Generate defs for all `BuiltInRegistries.ENTITY_TYPE` keys at pack-build time (no runtime hook needed) or via a runtime `PackResources` returning generated JSON/PNG. Fallback: Mixin on `RadarIconManager.get` (descriptor above) only if icons must vary per entity instance. Pin to minimap 26.6.0 / WM 1.47.0 and add a startup self-check (log if `RadarIconDefinitionManager.get(<test key>)` returns null/class missing).
+
+## Two sizes (minimap vs World Map): sprite swap
+
+Both maps draw from one `RadarIconManager`, so one set of sprites. Per-view sizes need two sets, swapped by view:
+- Sprites are fixed 64x64 quads; `renderIcon` scales by `max(1, ctx.iconScale * scale param)` where `iconScale` is Xaero's per-category `ICON_SCALE`. The scale cannot go below 1, so a smaller icon has to be smaller in the PNG itself (what `xaeroScale` already does), not through Xaero's scale.
+- Design: `XaeroSync` keeps a snapshot per view and serves the one of the active view (`xaero.map.gui.GuiMap` or a subclass open = World Map, else minimap) through the top-priority in-memory pack. On a change of view, in the client tick, it republishes (only if the two snapshots differ), releases changed sprite textures and calls `MinimapFBORenderer.resetEntityIconsResources` / `resetEntityIcons`. Nothing per frame; the screen check is one class-name walk per screen instance.
+- Effective sprite scale = `xaeroScale * size(view) / 16`, clamped 0.05 to 60/56 (56 px is 1.0, the box is 64).
+- Verified on rig (Xaero Minimap 26.6.0, World Map 1.47.0): minimap at 16 and 24 differ, World Map at 8, 16 and 24 differ, swapping back and forth works. The quick panel's Xaero tab (size, Mini/Full, scale, style, enabled, same-as-global, More) stays stable over the World Map: no exception, every row clickable.
+- Still true: one icon per mob type; the set of a view whose screen is not open is prepared but not shown.
+

@@ -207,7 +207,11 @@ public final class MobIconCache {
     }
 
     public static boolean isReady(EntityType<?> type, MapMod mod) {
-        return !isBlacklisted(type) && peek(typeKey(type, ClientConfig.profile(mod))).ready();
+        return isReady(type, mod, MapView.MINIMAP);
+    }
+
+    public static boolean isReady(EntityType<?> type, MapMod mod, MapView view) {
+        return !isBlacklisted(type) && peek(typeKey(type, ClientConfig.profile(mod, view))).ready();
     }
 
     /** {@code true} once a type's default icon has been tried and cannot be made. */
@@ -221,9 +225,13 @@ public final class MobIconCache {
     }
 
     public static byte @Nullable [] getPng(EntityType<?> type, MapMod mod) {
+        return getPng(type, mod, MapView.MINIMAP);
+    }
+
+    public static byte @Nullable [] getPng(EntityType<?> type, MapMod mod, MapView view) {
         if (isBlacklisted(type)) return null;
         synchronized (LOCK) {
-            Key k = typeKey(type, ClientConfig.profile(mod));
+            Key k = typeKey(type, ClientConfig.profile(mod, view));
             Entry e = peek(k);
             return e.ready() ? e.png() : fallback(k).png();
         }

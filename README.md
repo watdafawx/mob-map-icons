@@ -204,11 +204,11 @@ map mod only; the default is "inherit".
 | `iconStyle` | `INHERIT` | `INHERIT` or any style |
 | `iconMode` | `INHERIT` | `INHERIT`, `FULL_BODY` or `HEAD` |
 | `iconSizeMinimap` | `0` | `0` = the global `iconSizeMinimap`, else 8 to 64 |
-| `iconSizeFullscreen` | `0` | `0` = the global `iconSizeFullscreen`, else 8 to 64 (not in `[xaero]`) |
+| `iconSizeFullscreen` | `0` | `0` = the global `iconSizeFullscreen`, else 8 to 64 (in `[xaero]` it is the World Map's size) |
 | `rotateWithHeading`, `headingArrow`, `farmMode`, `players` | `INHERIT` | `INHERIT`, `ON` or `OFF` (not in `[xaero]`: it has one static icon per mob type and keeps its player heads) |
 | `ownPlayer` | `false` | Draw your own marker with our icon (FTB Chunks, JourneyMap) |
-| `xaeroScale` | `0.75` | `[xaero]` only: how much of Xaero's icon box the icon fills (0.25 to 1.0) |
-| `autoIconDisplay` | `true` | `[journeymap]` only: JourneyMap draws its own dot or pin round our icons unless its **Mob Display** and **Player Display** are `Icons`. On: while this adapter is enabled both are set to `Icons` for the minimap and the full-screen map, and your previous values come back when the adapter is disabled or this is turned off |
+| `xaeroScale` | `0.75` | `[xaero]` only: how much of Xaero's icon box the icon fills (0.25 to 1.0). The icon is drawn at `xaeroScale` x size / 16 of the box, so a size of 16 is the old look and 24 is half as big again (at most 60 of the box's 64 px) |
+| `autoIconDisplay` | `true` | `[journeymap]` only: JourneyMap draws its own dot or pin round our icons unless its **Mob Display** and **Player Display** are `Icons`. On: while this adapter is enabled both are set to `Icons` for the minimap and the full-screen map, and your previous values come back when the adapter is disabled, this is turned off, or the game quits (JourneyMap's own files never keep `Icons` while this mod is gone; the next start sets them again) |
 | `journeymapFrame` | `AUTO` | `[journeymap]` only: `AUTO` hides its pin when the style draws its own frame, `ON` always keeps it, `OFF` always hides it |
 
 Old config files keep working: the first time they load, the old flat `ftbChunks`, `xaero`, `journeymap`, `xaeroScale` and
@@ -218,7 +218,12 @@ keys. The icon cache is keyed by size, so a minimap and a full-screen map with d
 JourneyMap's own Mob Display and Player Display values are remembered in
 `config/mob_map_icons-journeymap-saved-display.properties` while `autoIconDisplay` holds them at `Icons`. If you change
 them yourself in JourneyMap (or from the panel's JM rows) they are left alone: choosing a non-`Icons` value in the panel
-turns `autoIconDisplay` off.
+turns `autoIconDisplay` off. The panel's JM tab has a **JM rows edit: minimap / full-screen map** button, so the JM rows
+(mobs, players, heading, show self, scales) can edit either view from either place.
+
+Xaero's World Map has its own icon size (`[xaero] iconSizeFullscreen`, else the global one) next to the minimap's. Xaero reads
+both from one set of sprites, so the mod keeps two sets and swaps in the World Map's while Xaero's World Map screen is open
+(one icon reload when it opens or closes, nothing per frame, and nothing at all while both sizes are equal).
 
 Client commands: `/mobmapicons options` (quick panel), `/mobmapicons style <name>`, `/mobmapicons reload` (rebuild icons),
 `/mobmapicons render <entity_type>`, `/mobmapicons headings` (all 8 headings of the mob you look at) and
@@ -241,13 +246,12 @@ Client commands: `/mobmapicons options` (quick panel), `/mobmapicons style <name
 
 - **Xaero:** icons are per mob type (no baby, colour or heading variants), because Xaero's icon
   definitions are static per type. Every sheep is white there. Icons are larger than Xaero's own heads;
-  lower `xaeroScale` (0.5 is about Xaero's size).
+  lower `xaeroScale` (0.5 is about Xaero's size). With different sizes the icons are reloaded once (a blink) when the World Map
+  opens or closes. Xaero's sprites are a fixed 64 x 64 box, so no icon gets bigger than 60 px.
 - **Players:** a full-body skin icon is narrow, so it reads smaller than JourneyMap's or FTB's face. JourneyMap
   players are swapped through its private face cache (tested on 6.0.9; if it changes, JourneyMap keeps its faces)
   and keep JourneyMap's square outline box. Xaero is not supported.
 - **JourneyMap:** there is no count badge, and farm-mode labels can overlap on a crowded minimap.
-- **Separate sizes:** Xaero's World Map reuses the sprites of its minimap radar, so there is one icon size for both Xaero
-  maps (`iconSizeMinimap`); FTB Chunks and JourneyMap have both.
 - Head mode finds the model's head part. Flying and wide mobs (bats, phantoms, ghasts, the dragon) get the
   full body instead, and a head facing away shows the back of the body.
 - Armour and held items are not drawn. Slime sizes get separate icons that look the same.

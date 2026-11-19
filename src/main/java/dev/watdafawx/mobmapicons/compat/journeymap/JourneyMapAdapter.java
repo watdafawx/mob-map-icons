@@ -58,6 +58,10 @@ public final class JourneyMapAdapter implements IClientPlugin {
                     OwnArrow.tick();
                     dev.watdafawx.mobmapicons.core.JmDisplay.tick();
                 });
+        // Put the user's mob/player display values back in JourneyMap's files before the game exits.
+        net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(
+                (net.neoforged.neoforge.event.GameShuttingDownEvent e) ->
+                        dev.watdafawx.mobmapicons.core.JmDisplay.restoreOnShutdown());
     }
 
     private static void update(EntityRadarUpdateEvent event) {
@@ -95,8 +99,12 @@ public final class JourneyMapAdapter implements IClientPlugin {
         }
         // JourneyMap's own heading arrow (its locator, turned by the mob's yaw) makes ours a double: skip ours then.
         boolean ourArrow = MobIconApi.headingArrow(MapMod.JOURNEYMAP) && !journeyMapShowsMobHeading(ui);
-        FrameRule rule = FrameRule.of(ClientConfig.style(MapMod.JOURNEYMAP), ClientConfig.journeyMapFrame(),
-                MobIconApi.rotateWithHeading(MapMod.JOURNEYMAP) || ourArrow, FrameHider.canHideFill());
+        // With Mob Display = Icons / Outlined icons JourneyMap draws no marker at all: draw our style as is, full size.
+        boolean marker = dev.watdafawx.mobmapicons.core.JmDisplay.markerShown(viewOf(ui));
+        FrameRule rule = marker
+                ? FrameRule.of(ClientConfig.style(MapMod.JOURNEYMAP), ClientConfig.journeyMapFrame(),
+                        MobIconApi.rotateWithHeading(MapMod.JOURNEYMAP) || ourArrow, FrameHider.canHideFill())
+                : FrameRule.noMarker(ClientConfig.style(MapMod.JOURNEYMAP));
         ResourceLocation icon = paddedIcon(mob, bucket, rule, ourArrow, viewOf(ui));
         // JourneyMap clears this override each radar update. Never hand it a pending resource.
         if (icon != null) {
@@ -105,7 +113,8 @@ public final class JourneyMapAdapter implements IClientPlugin {
             // coloured fill can only be hidden for all mobs at once, see FrameHider.
             wrapped.setDrawOutline(!rule.hideFrame());
         }
-        FrameHider.setFillHidden(rule.hideFrame());
+        // No marker drawn: leave the fill alone (players' pins share it).
+        FrameHider.setFillHidden(marker && rule.hideFrame());
     }
 
     // ---------------------------------------------------------------------------------------------

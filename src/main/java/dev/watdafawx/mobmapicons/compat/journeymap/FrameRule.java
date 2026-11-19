@@ -36,6 +36,11 @@ record FrameRule(IconStyle body, boolean hideFrame) {
         return new FrameRule(hide ? style : insideMarker(style), hide);
     }
 
+    /** JourneyMap draws no marker (Mob Display = Icons): the style as is, nothing to fit into. */
+    static FrameRule noMarker(IconStyle style) {
+        return new FrameRule(style, true);
+    }
+
     private static boolean selfContained(IconStyle style) {
         return switch (style) {
             case BADGE, HEAD_PIN, SILHOUETTE, RETRO, CHIBI, PAPER_INK -> true;

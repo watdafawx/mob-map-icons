@@ -9,8 +9,9 @@
   "All back to global"; rarely used rows (the map mod's own options, max icons, cluster radius) are on a second page, **More >**.
 - Separate icon size for the minimap and the full-screen map, all map mods: `iconSize` is replaced by `iconSizeMinimap`
   and `iconSizeFullscreen` (global, plus a per-map-mod override, `0` = inherit). FTB Chunks picks by its map type
-  (minimap vs large map), JourneyMap by its UI (minimap vs full-screen/web map). Xaero's World Map reuses the minimap
-  radar's sprites, so Xaero follows `iconSizeMinimap` only. An old `iconSize` seeds both new keys. The panel's size row
+  (minimap vs large map), JourneyMap by its UI (minimap vs full-screen/web map). Xaero's World Map
+  shares the minimap radar's sprites, so Xaero gets two sprite sets and the World Map's is swapped in while its screen
+  is open (see below). An old `iconSize` seeds both new keys. The panel's size row
   edits the view you are on (a Mini / Full button switches); the config screen lists both.
 - JourneyMap: new **JM mobs** and **JM players** rows in the panel (JourneyMap's Mob Display / Player Display, written
   live and saved) and `[journeymap] autoIconDisplay` (default on): JourneyMap draws its own dot or pin round our icons
@@ -18,6 +19,16 @@
   map. Your previous values are remembered and restored when the adapter is disabled or the option is turned off.
 - JourneyMap's own rows (mob heading, show self, mob scale, self scale, display) now write to the view the panel is on
   (minimap or full-screen map), and the minimap's separate properties object is kept in step.
+- Xaero: own icon size for the World Map (`[xaero] iconSizeFullscreen`) and the minimap. The mod serves the set of the
+  view on screen and swaps it, with one icon reload, when a World Map screen opens or closes (only if the two sets differ;
+  nothing per frame). `xaeroScale` now multiplies with size / 16 (16 keeps the old look); the sprite is capped at 60 of
+  Xaero's 64 px box. The panel's Xaero tab has the Mini / Full button too and stays stable over the World Map.
+- JourneyMap: a **JM rows edit: minimap / full-screen map** button in the panel's JM tab (and on its More page), so the
+  JM rows edit either view from either place.
+- JourneyMap: your Mob Display / Player Display values are put back in JourneyMap's files when the game quits, so they
+  never keep `Icons` while the mod is gone; the next start sets `Icons` again while `autoIconDisplay` is on.
+- JourneyMap: with Mob Display on `Icons` the icon is drawn at full size in the chosen style (OUTLINE keeps its outline)
+  instead of fitted small and plain into a marker JourneyMap no longer draws.
 - Config screen: one-level sections, size options next to each other, global options in the order the panel shows them.
 - API: `MapView` and view overloads (`getIcon(entity, MapMod, MapView)`, `iconSize(MapMod, MapView)`, `profile(MapMod, MapView)`);
   the old overloads mean the minimap.

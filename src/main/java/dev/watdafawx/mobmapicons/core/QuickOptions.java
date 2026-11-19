@@ -467,6 +467,7 @@ public final class QuickOptions {
                     if (e.key().equals("jm.mobDisplay")) mobDisplay = new Action(e);
                     if (e.key().equals("jm.playerDisplay")) playerDisplay = new Action(e);
                 }
+                rows.add(new ViewRow());
                 if (mobDisplay != null && playerDisplay != null) rows.add(new Pair(mobDisplay, playerDisplay));
                 rows.add(new Pair(new Toggle("autoIconDisplay", s.autoIconDisplay), new MoreButton(true)));
             } else if (left == null || right != null) {
@@ -482,6 +483,7 @@ public final class QuickOptions {
         if (ctx != MapMod.GLOBAL) {
             List<MapModOptions.Entry> own = MapModOptions.of(ctx, () -> sizeView);
             own.removeIf(e -> e.key().equals("jm.mobDisplay") || e.key().equals("jm.playerDisplay"));
+            if (!own.isEmpty() && ctx == MapMod.JOURNEYMAP) rows.add(new ViewRow());
             if (!own.isEmpty()) rows.add(new Heading("native"));
             for (int i = 0; i < own.size(); i += 2) {
                 Row a = new Action(own.get(i));
@@ -695,7 +697,7 @@ public final class QuickOptions {
         }
 
         private boolean hasToggle() {
-            return mod != MapMod.XAERO;
+            return true;
         }
 
         private MapView view() {
@@ -724,7 +726,7 @@ public final class QuickOptions {
         void draw(GuiGraphics g, Minecraft mc, int x, int y, int w, double mx, double my) {
             int lw = hasToggle() ? w - TOGGLE_W - GAP : w;
             box(g, x, y, lw, hover(x, y, lw, mx, my));
-            String key = hasToggle() ? "mob_map_icons.options.iconSize." + view().name().toLowerCase(Locale.ROOT) : "mob_map_icons.options.iconSize.xaero";
+            String key = "mob_map_icons.options.iconSize." + view().name().toLowerCase(Locale.ROOT);
             text(g, mc, Component.translatable(key, shown()), x, y, lw);
             if (hasToggle()) {
                 int bx = x + lw + GAP;
@@ -778,6 +780,34 @@ public final class QuickOptions {
             cell(out, idx, 0, x, y, lw, scale, this);
             if (hasToggle()) out.add("row " + idx + " c1 px=" + (int) ((x + lw + GAP + TOGGLE_W / 2.0) * scale)
                     + " py=" + (int) ((y + ROW / 2.0) * scale) + " ViewToggle " + view());
+        }
+    }
+
+    /**
+     * Which map the JourneyMap rows below it (mob / player display, mob heading, show self, scales) edit: its minimap or
+     * its full-screen map. Shares {@link #sizeView} with the size row's Mini / Full button, so the two always agree.
+     */
+    private static final class ViewRow extends Row {
+        @Override
+        String label() {
+            return "jmview=" + sizeView;
+        }
+
+        @Override
+        void draw(GuiGraphics g, Minecraft mc, int x, int y, int w, double mx, double my) {
+            box(g, x, y, w, hover(x, y, w, mx, my));
+            text(g, mc, Component.translatable("mob_map_icons.options.jmView",
+                    Component.translatable("mob_map_icons.options.viewLong." + sizeView.name().toLowerCase(Locale.ROOT))), x, y, w);
+        }
+
+        @Override
+        void press(int x, int w, double mx, int dir, int button) {
+            sizeView = sizeView == MapView.MINIMAP ? MapView.FULLSCREEN : MapView.MINIMAP;
+        }
+
+        @Override
+        void wheel(int x, int w, double mx, int dir) {
+            press(x, w, mx, dir, 0);
         }
     }
 

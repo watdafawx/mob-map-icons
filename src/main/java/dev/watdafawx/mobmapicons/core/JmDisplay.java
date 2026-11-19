@@ -31,6 +31,8 @@ public final class JmDisplay {
     private static final Map<String, String> SAVED = loadSaved();
     private static int ticks;
     private static boolean broken;
+    /** Per view: does JourneyMap draw its marker (pin) round a mob icon? Refreshed once a second by {@link #tick()}. */
+    private static final boolean[] MARKER = {true, true};
 
     private JmDisplay() {}
 
@@ -142,6 +144,7 @@ public final class JmDisplay {
         }
         set(field, next);
         save(field);
+        refreshMarkers();
         if (view == MapView.MINIMAP) syncMinimap();
     }
 
@@ -157,9 +160,65 @@ public final class JmDisplay {
     // ---------------------------------------------------------------------------------------------
     // Auto icon display
 
+    /**
+     * Whether JourneyMap draws its marker (the pin) round a mob icon on {@code view}: only the two "Dots and ..."
+     * displays do. With {@code Icons} or {@code OutlinedIcons} the icon is drawn alone, so an icon fitted into a
+     * marker that is not there would look small and edgeless. {@code true} when unreadable (the old behaviour).
+     */
+    public static boolean markerShown(MapView view) {
+        return MARKER[view.ordinal()];
+    }
+
+    private static void refreshMarkers() {
+        for (MapView view : MapView.values()) {
+            boolean shown = true;
+            try {
+                Object field = field(props(view), "mobDisplay");
+                if (field != null) {
+                    String n = name(get(field));
+                    shown = !(ICONS.equals(n) || "OutlinedIcons".equals(n));
+                }
+            } catch (ReflectiveOperationException | RuntimeException ignored) {
+                // keep the marker
+            }
+            MARKER[view.ordinal()] = shown;
+        }
+    }
+
+    /**
+     * On shutdown: puts the user's remembered display values back into JourneyMap's files, so JourneyMap never
+     * keeps our {@code Icons} on disk while this mod is gone. The remembered values stay on file so the next
+     * start (adapter and {@code autoIconDisplay} on) switches to Icons again, like {@link #tick()} does.
+     */
+    public static void restoreOnShutdown() {
+        if (broken || SAVED.isEmpty()) return;
+        try {
+            for (MapView view : MapView.values()) {
+                Object props = props(view);
+                for (String name : DISPLAY_FIELDS) {
+                    String old = SAVED.get(view.name().toLowerCase(java.util.Locale.ROOT) + "." + name);
+                    Object field = field(props, name);
+                    if (old == null || field == null) continue;
+                    Object v = get(field);
+                    if (!ICONS.equals(name(v))) continue; // the user already changed it: leave it alone
+                    Object back = constant(v, old);
+                    if (back == null) continue;
+                    set(field, back);
+                    save(field);
+                    MobMapIcons.LOG.info("JourneyMap {}.{} put back to {} for shutdown", view.name().toLowerCase(java.util.Locale.ROOT), name, old);
+                }
+            }
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
+            MobMapIcons.LOG.warn("Could not put JourneyMap's display options back on shutdown", e);
+        }
+    }
+
     /** Called every client tick; acts about once a second. */
     public static void tick() {
-        if (broken || ++ticks % 20 != 0) return;
+        if (broken) return;
+        ticks++;
+        if (ticks % 4 == 0) refreshMarkers(); // quick, so a switch to or from Icons is drawn right within ~0.2 s
+        if (ticks % 20 != 0) return;
         try {
             boolean want = ClientConfig.journeyMapEnabled() && ClientConfig.autoIconDisplay();
             if (!want && SAVED.isEmpty()) return;
@@ -175,7 +234,7 @@ public final class JmDisplay {
                         if (ICONS.equals(name(v))) continue;
                         Object icons = constant(v, ICONS);
                         if (icons == null) continue;
-                        SAVED.putIfAbsent(key, name(v));
+                        SAVED.put(key, name(v)); // whatever is there now is the user's value
                         set(field, icons);
                         save(field);
                         changed = true;

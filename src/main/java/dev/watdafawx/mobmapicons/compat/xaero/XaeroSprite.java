@@ -7,7 +7,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 
 /**
- * Turns a mob icon PNG (any size, {@code iconSize} 8..64) into the 64x64 RGBA sprite that Xaero's
+ * Turns a mob icon PNG (any size, icon size 8..64) into the 64x64 RGBA sprite that Xaero's
  * {@code RadarIconSpriteFormPrerenderer} expects.
  *
  * <p>Xaero binds the sprite as a texture and draws it as a fixed 64x64 quad
@@ -16,8 +16,8 @@ import java.io.IOException;
  * transparent room around the picture.
  *
  * <p>Our own PNGs are drawn tight to their edges, whereas Xaero's model icons fill roughly
- * {@link #BASE_CONTENT} px of the 64px cell. {@link ClientConfig#xaeroScale()} says how much of that box
- * the icon should fill (1.0 = 56 px, the default 0.75 = 42 px), so the picture is scaled to that size and
+ * {@link #BASE_CONTENT} px of the 64px cell. {@link ClientConfig#xaeroSpriteScale} (xaeroScale times the view's icon size over 16) says how much of that box
+ * the icon should fill (1.0 = 56 px, the default 0.75 = 42 px, at most 60 px), so the picture is scaled to that size and
  * centred, leaving the rest transparent for the outline. Upscaling uses NEAREST (pixel art stays crisp);
  * downscaling averages a 3x3 grid of bilinear samples per output pixel.
  */
@@ -30,7 +30,7 @@ final class XaeroSprite {
 
     /** @return 64x64 PNG bytes at the configured scale, or {@code null} if the source could not be decoded */
     static byte[] convert(byte[] sourcePng) {
-        return convert(sourcePng, ClientConfig.xaeroScale());
+        return convert(sourcePng, ClientConfig.xaeroSpriteScale(dev.watdafawx.mobmapicons.api.MapView.MINIMAP));
     }
 
     /**
@@ -42,8 +42,8 @@ final class XaeroSprite {
             int w = src.getWidth(), h = src.getHeight();
             if (w <= 0 || h <= 0) return null;
             int side = Math.max(w, h);
-            // Config range is 0.25..1.0; clamping here keeps a hand-edited file from producing a blank sprite.
-            double scale = Double.isFinite(contentScale) ? Math.max(0.25, Math.min(1.0, contentScale)) : 0.75;
+            // ClientConfig.xaeroSpriteScale already caps this; clamping here keeps a hand-edited value from producing a blank or overflowing sprite.
+            double scale = Double.isFinite(contentScale) ? Math.max(0.05, Math.min(ClientConfig.XAERO_MAX_SCALE, contentScale)) : 0.75;
             int content = Math.max(1, Math.min(SIZE, (int) Math.round(BASE_CONTENT * scale)));
             if (content == side) return copyCentred(src); // already the right size: no resampling, no blur
 

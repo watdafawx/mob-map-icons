@@ -252,6 +252,16 @@ public final class MobIconApi {
         return MobIconCache.getPng(type, mod);
     }
 
+    /** Like {@link #isReady(EntityType, MapMod)} for the icon size {@code mod} uses in {@code view}. */
+    public static boolean isReady(EntityType<?> type, MapMod mod, MapView view) {
+        return MobIconCache.isReady(type, mod, view);
+    }
+
+    /** Like {@link #getPng(EntityType, MapMod)} for the icon size {@code mod} uses in {@code view}. */
+    public static byte @Nullable [] getPng(EntityType<?> type, MapMod mod, MapView view) {
+        return MobIconCache.getPng(type, mod, view);
+    }
+
     @Nullable
     public static ResourceLocation getResourceIcon(EntityType<?> type, MapMod mod) {
         return MobIconCache.getResourceIcon(type, mod);

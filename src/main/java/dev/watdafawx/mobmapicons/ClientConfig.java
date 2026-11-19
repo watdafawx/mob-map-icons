@@ -77,7 +77,7 @@ public final class ClientConfig {
         public final ModConfigSpec.EnumValue<ModeChoice> iconMode;
         /** Minimap icon size; 0 = use the global minimap size. */
         public final ModConfigSpec.IntValue iconSizeMinimap;
-        /** Full-screen map icon size; 0 = use the global one. {@code null} for Xaero (one sprite serves both its maps). */
+        /** Full-screen map icon size; 0 = use the global one. For Xaero it sizes the World Map's own sprite set. */
         public final ModConfigSpec.IntValue iconSizeFullscreen;
         public final ModConfigSpec.EnumValue<Tri> rotateWithHeading;
         public final ModConfigSpec.EnumValue<Tri> headingArrow;
@@ -110,9 +110,9 @@ public final class ClientConfig {
             iconSizeMinimap = b.comment("Icon edge length in pixels on this map mod's minimap. 0 = the top-level iconSizeMinimap.")
                     .translation("mob_map_icons.configuration.mod.iconSizeMinimap")
                     .defineInRange("iconSizeMinimap", legacySize(mod), 0, 64);
-            iconSizeFullscreen = mod != MapMod.XAERO ? b.comment("Icon edge length in pixels on this map mod's full-screen map. 0 = the top-level iconSizeFullscreen.")
+            iconSizeFullscreen = b.comment("Icon edge length in pixels on this map mod's full-screen map. 0 = the top-level iconSizeFullscreen.")
                     .translation("mob_map_icons.configuration.mod.iconSizeFullscreen")
-                    .defineInRange("iconSizeFullscreen", legacySize(mod), 0, 64) : null;
+                    .defineInRange("iconSizeFullscreen", legacySize(mod), 0, 64);
             rotateWithHeading = heading ? b.comment("Turn each icon to the mob's heading on this map mod. INHERIT = the top-level value.")
                     .translation("mob_map_icons.configuration.mod.rotateWithHeading")
                     .defineEnum("rotateWithHeading", Tri.INHERIT) : null;
@@ -129,7 +129,8 @@ public final class ClientConfig {
                             "(face on FTB Chunks, arrow on JourneyMap). Off by default. Xaero cannot do this.")
                     .translation("mob_map_icons.configuration.mod.ownPlayer")
                     .define("ownPlayer", false) : null;
-            xaeroScale = mod == MapMod.XAERO ? b.comment("How much of the radar cell the icon fills (1.0 = Xaero's default 56 px box).",
+            xaeroScale = mod == MapMod.XAERO ? b.comment("How much of the radar cell the icon fills (1.0 = Xaero's default 56 px box) at the default icon size of 16.",
+                            "The minimap and the World Map each multiply it by their icon size / 16 (iconSizeMinimap, iconSizeFullscreen).",
                             "Lower it if icons look bigger than Xaero's own heads.")
                     .translation("mob_map_icons.configuration.mod.xaeroScale")
                     .defineInRange("xaeroScale", legacyDouble("xaeroScale", 0.75), 0.25, 1.0) : null;
@@ -267,8 +268,8 @@ public final class ClientConfig {
             .defineInRange("iconSizeMinimap", legacySize(MapMod.GLOBAL), 8, 64);
 
     public static final ModConfigSpec.IntValue ICON_SIZE_FULLSCREEN = BUILDER
-            .comment("Icon edge length in pixels on full-screen maps (FTB Chunks' large map, JourneyMap's full-screen map).",
-                    "Xaero draws one sprite for its minimap and world map, so it follows iconSizeMinimap.")
+            .comment("Icon edge length in pixels on full-screen maps (FTB Chunks' large map, JourneyMap's full-screen map,",
+                    "Xaero's World Map).")
             .translation("mob_map_icons.configuration.iconSizeFullscreen")
             .defineInRange("iconSizeFullscreen", legacySize(MapMod.GLOBAL), 8, 64);
 
@@ -468,11 +469,11 @@ public final class ClientConfig {
         }
     }
 
-    /** The config value that holds the size of {@code mod} in {@code view} (0 = inherit on a section); Xaero has only the minimap one. */
+    /** The config value that holds the size of {@code mod} in {@code view} (0 = inherit on a section). */
     public static ModConfigSpec.IntValue sizeValue(MapMod mod, MapView view) {
         Section s = sectionOf(mod);
         if (s == null) return view == MapView.FULLSCREEN ? ICON_SIZE_FULLSCREEN : ICON_SIZE_MINIMAP;
-        return view == MapView.FULLSCREEN && s.iconSizeFullscreen != null ? s.iconSizeFullscreen : s.iconSizeMinimap;
+        return view == MapView.FULLSCREEN ? s.iconSizeFullscreen : s.iconSizeMinimap;
     }
 
     private static boolean tri(ModConfigSpec.EnumValue<Tri> value, boolean global) {
@@ -539,6 +540,18 @@ public final class ClientConfig {
         try { return XAERO.xaeroScale.get(); } catch (IllegalStateException notLoaded) { return 0.75; }
     }
 
+    /** Largest fraction of Xaero's 56 px box that still fits its 64 px sprite cell with room for Xaero's own outline. */
+    public static final double XAERO_MAX_SCALE = 60.0 / 56.0;
+
+    /**
+     * How much of Xaero's 56 px box the sprite of one view fills: {@code xaeroScale} times that view's icon size over the
+     * 16 px default (so 16 / 16 is the plain {@code xaeroScale}), capped to what fits the sprite cell.
+     */
+    public static double xaeroSpriteScale(MapView view) {
+        double k = xaeroScale() * size(MapMod.XAERO, view) / (double) DEFAULT_ICON_SIZE;
+        return Math.max(0.05, Math.min(XAERO_MAX_SCALE, k));
+    }
+
     /** JourneyMap: keep its Mob/Player Display on Icons while the adapter is on. */
     public static boolean autoIconDisplay() {
         try { return JOURNEYMAP.autoIconDisplay.get(); } catch (IllegalStateException notLoaded) { return true; }
@@ -552,7 +565,7 @@ public final class ClientConfig {
     public static java.util.List<Object> iconSettings() {
         return java.util.List.of(profile(MapMod.GLOBAL), profile(MapMod.FTB), profile(MapMod.XAERO), profile(MapMod.JOURNEYMAP),
                 profile(MapMod.GLOBAL, MapView.FULLSCREEN), profile(MapMod.FTB, MapView.FULLSCREEN),
-                profile(MapMod.JOURNEYMAP, MapView.FULLSCREEN), tintByHostility(), farmMode(), players(), maxIcons(), clusterRadius(), clusterMinCount(), xaeroScale(), blacklist());
+                profile(MapMod.XAERO, MapView.FULLSCREEN), profile(MapMod.JOURNEYMAP, MapView.FULLSCREEN), tintByHostility(), farmMode(), players(), maxIcons(), clusterRadius(), clusterMinCount(), xaeroScale(), blacklist());
     }
 
     /** Keeps a typo out of the list: every entry has to parse as a resource location. */
