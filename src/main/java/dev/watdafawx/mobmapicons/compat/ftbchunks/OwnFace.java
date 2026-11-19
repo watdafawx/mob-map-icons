@@ -6,6 +6,7 @@ import dev.ftb.mods.ftblibrary.icon.Icon;
 import dev.watdafawx.mobmapicons.ClientConfig;
 import dev.watdafawx.mobmapicons.MobMapIcons;
 import dev.watdafawx.mobmapicons.api.MapMod;
+import dev.watdafawx.mobmapicons.api.MapView;
 import dev.watdafawx.mobmapicons.api.MobIconApi;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -40,11 +41,11 @@ final class OwnFace {
         public void draw(GuiGraphics graphics, int x, int y, int w, int h) {
             LocalPlayer player = Minecraft.getInstance().player;
             ResourceLocation texture = player == null ? null
-                    : MobIconApi.getIcon(player, IconDraw.bucket(player, MapType.MINIMAP), MapMod.FTB, false);
+                    : MobIconApi.getIcon(player, IconDraw.bucket(player, MapType.MINIMAP), MapMod.FTB, MapView.MINIMAP, false);
             if (texture == null) {
                 fallback.draw(graphics, x, y, w, h);
             } else {
-                IconDraw.quad(graphics, texture, player, x, y, w, h, 255);
+                IconDraw.quad(graphics, texture, player, x, y, w, h, 255, MapView.MINIMAP);
             }
         }
     }

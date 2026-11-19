@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.4.4 (unreleased)
+
+- Quick options panel, faster: one compact view with no scrolling (style, mode, size, rotate, arrow, farm, players, own
+  icon). Style, mode and the on/off/global rows step on a click and on the mouse wheel over the row; right click or
+  shift+click steps back. Stepping off "global" always lands on a value that changes the look. Changing style and size
+  for one map mod is three clicks (its tab, Style, Size). A **Same as global** toggle on each map mod tab replaces
+  "All back to global"; rarely used rows (the map mod's own options, max icons, cluster radius) are on a second page, **More >**.
+- Separate icon size for the minimap and the full-screen map, all map mods: `iconSize` is replaced by `iconSizeMinimap`
+  and `iconSizeFullscreen` (global, plus a per-map-mod override, `0` = inherit). FTB Chunks picks by its map type
+  (minimap vs large map), JourneyMap by its UI (minimap vs full-screen/web map). Xaero's World Map reuses the minimap
+  radar's sprites, so Xaero follows `iconSizeMinimap` only. An old `iconSize` seeds both new keys. The panel's size row
+  edits the view you are on (a Mini / Full button switches); the config screen lists both.
+- JourneyMap: new **JM mobs** and **JM players** rows in the panel (JourneyMap's Mob Display / Player Display, written
+  live and saved) and `[journeymap] autoIconDisplay` (default on): JourneyMap draws its own dot or pin round our icons
+  unless both are `Icons`, so while the adapter is enabled they are set to `Icons` for the minimap and the full-screen
+  map. Your previous values are remembered and restored when the adapter is disabled or the option is turned off.
+- JourneyMap's own rows (mob heading, show self, mob scale, self scale, display) now write to the view the panel is on
+  (minimap or full-screen map), and the minimap's separate properties object is kept in step.
+- Config screen: one-level sections, size options next to each other, global options in the order the panel shows them.
+- API: `MapView` and view overloads (`getIcon(entity, MapMod, MapView)`, `iconSize(MapMod, MapView)`, `profile(MapMod, MapView)`);
+  the old overloads mean the minimap.
+- Dev harness: `rclick`, `clicks` / `resetclicks`, `jmdisplay`, `cfgsave` and the `sizemin` / `sizefull` / `autodisplay` cfg keys.
+
 ## 0.4.3
 
 - Heading arrow: a small arrow on each icon shows the way the mob faces (FTB Chunks, JourneyMap; `headingArrow`, on by default). `rotateWithHeading` is now off by default.

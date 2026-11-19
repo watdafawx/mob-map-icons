@@ -203,3 +203,27 @@ colorSelf: with JM ownPlayer on, `colorSelf` is white in memory only. Forced `Co
 into journeymap.core.config. Now the user's colour is put back whenever a JourneyMap screen other than the fullscreen map
 (options, dialogs) is open and on GameShuttingDownEvent; the file stayed "#0000ff" through options open/close, panel toggles
 and a normal quit. A save forced by hand while the map is showing still writes white (only the dev `jmsave` step does that).
+
+
+0.4.4 fixes (branch fix043)
+---------------------------
+Taken on rig with `runScene` (FTB Chunks 2101.1.24 + JourneyMap 6.0.9, FTB minimap bottom right, JM minimap top right,
+crops of the real 1920x1080 frame, Pillow labels, palette-reduced). Panel rows were clicked with real mouse clicks (`click`
+and `rclick` scene steps, coordinates from `dump`, counted by the `clicks` step); values read back with `maps` / `dump`.
+
+fix043-jm-display-before-after.png   JM minimap. Before: JourneyMap's Mob Display left at Dots + Outlined Icons (a pin round
+                                     every icon). After: `autoIconDisplay` on, both displays forced to Icons, pins gone. The
+                                     previous values were restored when the option went off again (saved-display file).
+fix043-ftb-minimap-vs-largemap.png   FTB Chunks, one run. Minimap 16 / large map 40 (top row), then minimap 40 / large map 16
+                                     (bottom row): the two sizes are independent and each renders and caches on its own.
+fix043-jm-minimap-vs-fullscreen.png  JourneyMap: minimap 16 next to the full-screen map at 40, and the same full-screen view at 16.
+fix043-panel-compact.png             The compact panel: Global tab, FTB tab after tab + Style + Size (3 clicks, `clicks` = 3),
+                                     JM tab "More >" page (map mod's own options and limits).
+fix043-panel-fullscreen-size.png     Panel opened over JourneyMap's full-screen map: the size row reads "Size full" and three
+                                     clicks move it 16 (g) > 20 > 24 > 32; the Mini / Full button switches to the minimap's size.
+fix043-jm-rows.png                   Every JM row driven once: style, size, rotate, arrow, farm, players, own icon, frame,
+                                     enabled off/on, and on the More page mob heading, show self, mob scale, self scale.
+fix043-config-screen.png             The NeoForge config screen: global options in the panel's order, both size sliders next to
+                                     each other, map mods as one-level "Edit..." entries.
+
+The old `docs/screenshots/*` images of 0.4.3 and earlier show the single `iconSize` and the long scrolling panel.

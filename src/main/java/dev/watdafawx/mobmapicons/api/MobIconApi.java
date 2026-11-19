@@ -62,7 +62,7 @@ import org.jetbrains.annotations.Nullable;
  * one that is ready (same variant at another bucket, then the type default) rather than {@code null},
  * so a map does not flicker back to its own marker when a mob turns or is first seen.
  *
- * <p>Icons are {@code 2 * iconSize()} pixels square, registered with the client texture manager
+ * <p>Icons are {@code 2 * iconSize(view)} pixels square, registered with the client texture manager
  * under {@code mob_map_icons:icons/<namespace>/<path>/...}. A texture id stays valid until the icon is
  * evicted (the cache holds {@value MobIconCache#MAX_ENTRIES} icons, least recently used out first) or
  * {@link #invalidateAll()} runs, so look the id up again each frame instead of keeping it.
@@ -298,8 +298,37 @@ public final class MobIconApi {
         return ClientConfig.usesHeading(mod);
     }
 
+    /** Minimap icon edge on {@code mod}. */
     public static int iconSize(MapMod mod) {
         return ClientConfig.size(mod);
+    }
+
+    /** Icon edge on {@code mod} in one view; the minimap and the full-screen map are sized separately. */
+    public static int iconSize(MapMod mod, MapView view) {
+        return ClientConfig.size(mod, view);
+    }
+
+    /** The effective look on {@code mod} in {@code view}: {@link #profile(MapMod)} with that view's icon size. */
+    public static IconProfile profile(MapMod mod, MapView view) {
+        return ClientConfig.profile(mod, view);
+    }
+
+    /** The type's icon on {@code mod} at its size in {@code view}. */
+    @Nullable
+    public static ResourceLocation getIcon(EntityType<?> type, MapMod mod, MapView view) {
+        return MobIconCache.getIcon(type, mod, view);
+    }
+
+    /** The entity's icon on {@code mod} in {@code view}, facing the viewer, no heading arrow. */
+    @Nullable
+    public static ResourceLocation getIcon(Entity entity, MapMod mod, MapView view) {
+        return MobIconCache.getIcon(entity, mod, view);
+    }
+
+    /** The entity's icon on {@code mod} in {@code view} at a heading, with or without the heading arrow. */
+    @Nullable
+    public static ResourceLocation getIcon(Entity entity, int yawBucket, MapMod mod, MapView view, boolean arrow) {
+        return MobIconCache.getIcon(entity, yawBucket, mod, view, arrow);
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -314,8 +343,13 @@ public final class MobIconApi {
         MobIconCache.invalidateAll();
     }
 
-    /** Edge length in pixels of every icon this mod hands out, after config. Textures are twice this. */
+    /** Global minimap icon edge in pixels, after config. Textures are twice this. */
     public static int iconSize() {
         return ClientConfig.iconSize();
+    }
+
+    /** Global icon edge for one view. */
+    public static int iconSize(MapView view) {
+        return ClientConfig.iconSize(view);
     }
 }

@@ -8,6 +8,7 @@ import dev.ftb.mods.ftbchunks.client.mapicon.EntityMapIcon;
 import dev.ftb.mods.ftblibrary.util.client.ClientUtils;
 import dev.watdafawx.mobmapicons.ClientConfig;
 import dev.watdafawx.mobmapicons.api.MapMod;
+import dev.watdafawx.mobmapicons.api.MapView;
 import dev.watdafawx.mobmapicons.api.MobIconApi;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -144,7 +145,8 @@ final class IconPass {
 
     private static int configHash() {
         return Objects.hash(ClientConfig.farm(MapMod.FTB), ClientConfig.clusterRadius(), ClientConfig.clusterMinCount(),
-                ClientConfig.maxIcons(), ClientConfig.players(MapMod.FTB), ClientConfig.ownPlayer(MapMod.FTB));
+                ClientConfig.maxIcons(), ClientConfig.players(MapMod.FTB), ClientConfig.ownPlayer(MapMod.FTB),
+                ClientConfig.size(MapMod.FTB, MapView.MINIMAP), ClientConfig.size(MapMod.FTB, MapView.FULLSCREEN));
     }
 
     /** {@code true} when the zoom or config the last pass used no longer matches, so FTB should rebuild. */
@@ -214,7 +216,7 @@ final class IconPass {
             if (!farm || !mergeable(e)) {
                 continue;
             }
-            ResourceLocation tex = MobIconApi.getIcon(e, MapMod.FTB);
+            ResourceLocation tex = MobIconApi.getIcon(e, MapMod.FTB, IconDraw.viewOf(type));
             if (tex == null) {
                 continue; // still rendering: stays its own icon until the next pass
             }

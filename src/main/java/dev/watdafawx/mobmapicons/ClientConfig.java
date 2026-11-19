@@ -4,6 +4,7 @@ import dev.watdafawx.mobmapicons.api.IconMode;
 import dev.watdafawx.mobmapicons.api.IconProfile;
 import dev.watdafawx.mobmapicons.api.IconStyle;
 import dev.watdafawx.mobmapicons.api.MapMod;
+import dev.watdafawx.mobmapicons.api.MapView;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
@@ -74,8 +75,10 @@ public final class ClientConfig {
         public final ModConfigSpec.BooleanValue enabled;
         public final ModConfigSpec.EnumValue<StyleChoice> iconStyle;
         public final ModConfigSpec.EnumValue<ModeChoice> iconMode;
-        /** 0 = use the global size. */
-        public final ModConfigSpec.IntValue iconSize;
+        /** Minimap icon size; 0 = use the global minimap size. */
+        public final ModConfigSpec.IntValue iconSizeMinimap;
+        /** Full-screen map icon size; 0 = use the global one. {@code null} for Xaero (one sprite serves both its maps). */
+        public final ModConfigSpec.IntValue iconSizeFullscreen;
         public final ModConfigSpec.EnumValue<Tri> rotateWithHeading;
         public final ModConfigSpec.EnumValue<Tri> headingArrow;
         public final ModConfigSpec.EnumValue<Tri> farmMode;
@@ -83,6 +86,8 @@ public final class ClientConfig {
         public final ModConfigSpec.BooleanValue ownPlayer;
         public final ModConfigSpec.DoubleValue xaeroScale;
         public final ModConfigSpec.EnumValue<JourneyMapFrame> journeymapFrame;
+        /** JourneyMap only: switch JourneyMap's mob and player display to Icons so it draws no dot round ours. */
+        public final ModConfigSpec.BooleanValue autoIconDisplay;
 
         private Section(MapMod mod, ModConfigSpec.Builder b, boolean built) {
             this.mod = mod;
@@ -102,9 +107,12 @@ public final class ClientConfig {
             iconMode = b.comment("Full body or head and shoulders on this map mod. INHERIT = the top-level iconMode.")
                     .translation("mob_map_icons.configuration.mod.iconMode")
                     .defineEnum("iconMode", ModeChoice.INHERIT);
-            iconSize = b.comment("Icon edge length in pixels on this map mod. 0 = the top-level iconSize.")
-                    .translation("mob_map_icons.configuration.mod.iconSize")
-                    .defineInRange("iconSize", 0, 0, 64);
+            iconSizeMinimap = b.comment("Icon edge length in pixels on this map mod's minimap. 0 = the top-level iconSizeMinimap.")
+                    .translation("mob_map_icons.configuration.mod.iconSizeMinimap")
+                    .defineInRange("iconSizeMinimap", legacySize(mod), 0, 64);
+            iconSizeFullscreen = mod != MapMod.XAERO ? b.comment("Icon edge length in pixels on this map mod's full-screen map. 0 = the top-level iconSizeFullscreen.")
+                    .translation("mob_map_icons.configuration.mod.iconSizeFullscreen")
+                    .defineInRange("iconSizeFullscreen", legacySize(mod), 0, 64) : null;
             rotateWithHeading = heading ? b.comment("Turn each icon to the mob's heading on this map mod. INHERIT = the top-level value.")
                     .translation("mob_map_icons.configuration.mod.rotateWithHeading")
                     .defineEnum("rotateWithHeading", Tri.INHERIT) : null;
@@ -133,6 +141,12 @@ public final class ClientConfig {
                             "OFF = always hide it and draw our icon style as is.")
                     .translation("mob_map_icons.configuration.mod.journeymapFrame")
                     .defineEnum("journeymapFrame", legacyFrame()) : null;
+            autoIconDisplay = mod == MapMod.JOURNEYMAP ? b.comment("JourneyMap draws its own dot or pin round our icons unless its Mob Display and Player Display",
+                            "options are set to Icons. On: while this adapter is enabled and either display is not Icons,",
+                            "both are set to Icons for the minimap and the full-screen map. Your previous values are",
+                            "remembered and put back when the adapter is disabled or this option is turned off.")
+                    .translation("mob_map_icons.configuration.mod.autoIconDisplay")
+                    .define("autoIconDisplay", true) : null;
             b.pop();
         }
     }
@@ -189,7 +203,8 @@ public final class ClientConfig {
             if (!java.nio.file.Files.isRegularFile(file)) return out;
             try (var in = java.nio.file.Files.newBufferedReader(file)) {
                 var cfg = new com.electronwill.nightconfig.toml.TomlParser().parse(in);
-                for (String key : List.of("ftbChunks", "xaero", "journeymap", "xaeroScale", "journeymapFrame")) {
+                for (String key : List.of("ftbChunks", "xaero", "journeymap", "xaeroScale", "journeymapFrame",
+                        "iconSize", "ftb.iconSize", "xaero.iconSize", "journeymap.iconSize")) {
                     Object v = cfg.get(key);
                     if (v instanceof Boolean || v instanceof Number || v instanceof String) out.put(key, v);
                 }
@@ -210,6 +225,14 @@ public final class ClientConfig {
         return key == null || !(LEGACY.get(key) instanceof Boolean b) || b;
     }
 
+    /** Pre-0.4.4 {@code iconSize} (top level or the map mod's section) becomes the default of both new size keys. */
+    private static int legacySize(MapMod mod) {
+        boolean global = mod == MapMod.GLOBAL;
+        String key = global ? "iconSize" : mod.id() + ".iconSize";
+        if (LEGACY.get(key) instanceof Number n) return Math.max(global ? 8 : 0, Math.min(64, n.intValue()));
+        return global ? DEFAULT_ICON_SIZE : 0;
+    }
+
     private static double legacyDouble(String key, double def) {
         return LEGACY.get(key) instanceof Number n ? Math.max(0.25, Math.min(1.0, n.doubleValue())) : def;
     }
@@ -227,20 +250,27 @@ public final class ClientConfig {
 
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
 
-    public static final ModConfigSpec.EnumValue<IconMode> ICON_MODE = BUILDER
-            .comment("What to draw: the whole mob model (FULL_BODY) or a head-and-shoulders crop (HEAD). Flying and very wide mobs always show the full body.")
-            .translation("mob_map_icons.configuration.iconMode")
-            .defineEnum("iconMode", IconMode.FULL_BODY);
-
     public static final ModConfigSpec.EnumValue<IconStyle> ICON_STYLE = BUILDER
             .comment("Icon appearance. CHIBI uses body plus head; HEAD_PIN uses head; TOP_DOWN uses body from above.")
             .translation("mob_map_icons.configuration.iconStyle")
             .defineEnum("iconStyle", IconStyle.OUTLINE);
 
-    public static final ModConfigSpec.IntValue ICON_SIZE = BUILDER
-            .comment("Icon edge length in pixels, before the map mod scales it.")
-            .translation("mob_map_icons.configuration.iconSize")
-            .defineInRange("iconSize", DEFAULT_ICON_SIZE, 8, 64);
+    public static final ModConfigSpec.EnumValue<IconMode> ICON_MODE = BUILDER
+            .comment("What to draw: the whole mob model (FULL_BODY) or a head-and-shoulders crop (HEAD). Flying and very wide mobs always show the full body.")
+            .translation("mob_map_icons.configuration.iconMode")
+            .defineEnum("iconMode", IconMode.FULL_BODY);
+
+    public static final ModConfigSpec.IntValue ICON_SIZE_MINIMAP = BUILDER
+            .comment("Icon edge length in pixels on minimaps (the small in-world map), before the map mod scales it.",
+                    "Replaces the single iconSize of 0.4.3 and older, whose value both size keys start from.")
+            .translation("mob_map_icons.configuration.iconSizeMinimap")
+            .defineInRange("iconSizeMinimap", legacySize(MapMod.GLOBAL), 8, 64);
+
+    public static final ModConfigSpec.IntValue ICON_SIZE_FULLSCREEN = BUILDER
+            .comment("Icon edge length in pixels on full-screen maps (FTB Chunks' large map, JourneyMap's full-screen map).",
+                    "Xaero draws one sprite for its minimap and world map, so it follows iconSizeMinimap.")
+            .translation("mob_map_icons.configuration.iconSizeFullscreen")
+            .defineInRange("iconSizeFullscreen", legacySize(MapMod.GLOBAL), 8, 64);
 
     public static final ModConfigSpec.BooleanValue ROTATE_WITH_HEADING = BUILDER
             .comment("Turn each mob's icon to face the way the mob is heading on the map (8 directions,",
@@ -255,11 +285,6 @@ public final class ClientConfig {
             .translation("mob_map_icons.configuration.headingArrow")
             .define("headingArrow", true);
 
-    public static final ModConfigSpec.BooleanValue TINT_BY_HOSTILITY = BUILDER
-            .comment("Tint hostile mobs' map icons red (FTB Chunks).")
-            .translation("mob_map_icons.configuration.tintByHostility")
-            .define("tintByHostility", false);
-
     public static final ModConfigSpec.BooleanValue FARM_MODE = BUILDER
             .comment("Farm mode: when many mobs of one kind stand close together on the map, draw one icon",
                     "with a count badge instead of a stack (FTB Chunks), or hide the duplicates",
@@ -273,6 +298,11 @@ public final class ClientConfig {
                     "ownPlayer option. Xaero keeps its own player heads.")
             .translation("mob_map_icons.configuration.players")
             .define("players", true);
+
+    public static final ModConfigSpec.BooleanValue TINT_BY_HOSTILITY = BUILDER
+            .comment("Tint hostile mobs' map icons red (FTB Chunks).")
+            .translation("mob_map_icons.configuration.tintByHostility")
+            .define("tintByHostility", false);
 
     public static final ModConfigSpec.IntValue MAX_ICONS = BUILDER
             .comment("Most mob icons drawn at once, nearest to the player first. 0 = no limit.")
@@ -336,7 +366,15 @@ public final class ClientConfig {
     }
 
     public static int iconSize() {
-        try { return ICON_SIZE.get(); } catch (IllegalStateException notLoaded) { return DEFAULT_ICON_SIZE; }
+        return iconSize(MapView.MINIMAP);
+    }
+
+    public static int iconSize(MapView view) {
+        try {
+            return (view == MapView.FULLSCREEN ? ICON_SIZE_FULLSCREEN : ICON_SIZE_MINIMAP).get();
+        } catch (IllegalStateException notLoaded) {
+            return DEFAULT_ICON_SIZE;
+        }
     }
 
     public static boolean rotateWithHeading() {
@@ -411,16 +449,30 @@ public final class ClientConfig {
         try { return s.iconMode.get().resolve(global); } catch (IllegalStateException notLoaded) { return global; }
     }
 
+    /** Minimap icon size on {@code mod}. */
     public static int size(MapMod mod) {
+        return size(mod, MapView.MINIMAP);
+    }
+
+    /** Icon size on {@code mod} in {@code view}: the section's value, or the global one for that view when it is 0. */
+    public static int size(MapMod mod, MapView view) {
         Section s = sectionOf(mod);
-        int global = iconSize();
+        int global = iconSize(view);
         if (s == null) return global;
+        ModConfigSpec.IntValue value = sizeValue(mod, view);
         try {
-            int v = s.iconSize.get();
+            int v = value.get();
             return v <= 0 ? global : Math.max(8, v);
         } catch (IllegalStateException notLoaded) {
             return global;
         }
+    }
+
+    /** The config value that holds the size of {@code mod} in {@code view} (0 = inherit on a section); Xaero has only the minimap one. */
+    public static ModConfigSpec.IntValue sizeValue(MapMod mod, MapView view) {
+        Section s = sectionOf(mod);
+        if (s == null) return view == MapView.FULLSCREEN ? ICON_SIZE_FULLSCREEN : ICON_SIZE_MINIMAP;
+        return view == MapView.FULLSCREEN && s.iconSizeFullscreen != null ? s.iconSizeFullscreen : s.iconSizeMinimap;
     }
 
     private static boolean tri(ModConfigSpec.EnumValue<Tri> value, boolean global) {
@@ -461,7 +513,12 @@ public final class ClientConfig {
 
     /** What an icon looks like on this map mod, after the overrides. The cache keys on exactly this. */
     public static IconProfile profile(MapMod mod) {
-        return new IconProfile(style(mod), mode(mod), size(mod), rotate(mod), arrow(mod));
+        return profile(mod, MapView.MINIMAP);
+    }
+
+    /** Like {@link #profile(MapMod)} for one view: only the size differs between views. */
+    public static IconProfile profile(MapMod mod, MapView view) {
+        return new IconProfile(style(mod), mode(mod), size(mod, view), rotate(mod), arrow(mod));
     }
 
     // Legacy accessors the adapters and the dev harness already use, now per section.
@@ -482,6 +539,11 @@ public final class ClientConfig {
         try { return XAERO.xaeroScale.get(); } catch (IllegalStateException notLoaded) { return 0.75; }
     }
 
+    /** JourneyMap: keep its Mob/Player Display on Icons while the adapter is on. */
+    public static boolean autoIconDisplay() {
+        try { return JOURNEYMAP.autoIconDisplay.get(); } catch (IllegalStateException notLoaded) { return true; }
+    }
+
     public static JourneyMapFrame journeyMapFrame() {
         try { return JOURNEYMAP.journeymapFrame.get(); } catch (IllegalStateException notLoaded) { return JourneyMapFrame.AUTO; }
     }
@@ -489,7 +551,8 @@ public final class ClientConfig {
     /** Everything the rendered icons depend on; a change throws the cache away. */
     public static java.util.List<Object> iconSettings() {
         return java.util.List.of(profile(MapMod.GLOBAL), profile(MapMod.FTB), profile(MapMod.XAERO), profile(MapMod.JOURNEYMAP),
-                tintByHostility(), farmMode(), players(), maxIcons(), clusterRadius(), clusterMinCount(), xaeroScale(), blacklist());
+                profile(MapMod.GLOBAL, MapView.FULLSCREEN), profile(MapMod.FTB, MapView.FULLSCREEN),
+                profile(MapMod.JOURNEYMAP, MapView.FULLSCREEN), tintByHostility(), farmMode(), players(), maxIcons(), clusterRadius(), clusterMinCount(), xaeroScale(), blacklist());
     }
 
     /** Keeps a typo out of the list: every entry has to parse as a resource location. */

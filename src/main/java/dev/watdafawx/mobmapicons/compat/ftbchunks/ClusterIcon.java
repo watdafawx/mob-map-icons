@@ -137,14 +137,14 @@ final class ClusterIcon implements MapIcon {
     public void draw(MapType mapType, GuiGraphics graphics, int x, int y, int w, int h, boolean outsideVisibleArea, int iconAlpha) {
         long t0 = System.nanoTime();
         Entity e = rep();
-        ResourceLocation texture = MobIconApi.getIcon(e, MapMod.FTB);
+        ResourceLocation texture = MobIconApi.getIcon(e, MapMod.FTB, IconDraw.viewOf(mapType));
         if (texture == null) {
             original.draw(mapType, graphics, x, y, w, h, outsideVisibleArea, iconAlpha);
         } else {
-            IconDraw.quad(graphics, texture, e, x, y, w, h, iconAlpha);
+            IconDraw.quad(graphics, texture, e, x, y, w, h, iconAlpha, IconDraw.viewOf(mapType));
         }
         if (showBadge) {
-            IconDraw.badge(graphics, badge, x, y, w, h, iconAlpha);
+            IconDraw.badge(graphics, badge, x, y, w, h, iconAlpha, IconDraw.viewOf(mapType));
         }
         IconDraw.drawNanos += System.nanoTime() - t0;
         IconDraw.drawCount++;

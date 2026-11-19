@@ -3,6 +3,7 @@ package dev.watdafawx.mobmapicons.compat.journeymap;
 import dev.watdafawx.mobmapicons.ClientConfig;
 import dev.watdafawx.mobmapicons.MobMapIcons;
 import dev.watdafawx.mobmapicons.api.MapMod;
+import dev.watdafawx.mobmapicons.api.MapView;
 import dev.watdafawx.mobmapicons.api.MobIconApi;
 import dev.watdafawx.mobmapicons.core.HeadingArrow;
 import dev.watdafawx.mobmapicons.core.IconPadding;
@@ -53,7 +54,10 @@ public final class JourneyMapAdapter implements IClientPlugin {
     public void initialize(IClientAPI api) {
         ClientEventRegistry.ENTITY_RADAR_UPDATE_EVENT.subscribe(getModId(), JourneyMapAdapter::update);
         net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(
-                (net.neoforged.neoforge.client.event.ClientTickEvent.Post e) -> OwnArrow.tick());
+                (net.neoforged.neoforge.client.event.ClientTickEvent.Post e) -> {
+                    OwnArrow.tick();
+                    dev.watdafawx.mobmapicons.core.JmDisplay.tick();
+                });
     }
 
     private static void update(EntityRadarUpdateEvent event) {
@@ -65,7 +69,7 @@ public final class JourneyMapAdapter implements IClientPlugin {
         var entity = wrapped.getEntityRef().get();
         if (event.getType() == EntityRadarUpdateEvent.EntityType.PLAYER) {
             if (entity instanceof net.minecraft.client.player.RemotePlayer other) {
-                if (ClientConfig.players(MapMod.JOURNEYMAP)) updatePlayer(event, other);
+                if (ClientConfig.players(MapMod.JOURNEYMAP)) updatePlayer(event, other, viewOf(event.getActiveUiState()));
                 else restoreFace(other);
             }
             return;
@@ -93,7 +97,7 @@ public final class JourneyMapAdapter implements IClientPlugin {
         boolean ourArrow = MobIconApi.headingArrow(MapMod.JOURNEYMAP) && !journeyMapShowsMobHeading(ui);
         FrameRule rule = FrameRule.of(ClientConfig.style(MapMod.JOURNEYMAP), ClientConfig.journeyMapFrame(),
                 MobIconApi.rotateWithHeading(MapMod.JOURNEYMAP) || ourArrow, FrameHider.canHideFill());
-        ResourceLocation icon = paddedIcon(mob, bucket, rule, ourArrow);
+        ResourceLocation icon = paddedIcon(mob, bucket, rule, ourArrow, viewOf(ui));
         // JourneyMap clears this override each radar update. Never hand it a pending resource.
         if (icon != null) {
             wrapped.setEntityIconLocation(icon);
@@ -134,14 +138,19 @@ public final class JourneyMapAdapter implements IClientPlugin {
         }
     }
 
-    private static void updatePlayer(EntityRadarUpdateEvent event, net.minecraft.client.player.RemotePlayer player) {
+    /** The minimap draws at the minimap icon size; JourneyMap's full-screen map (and its web map) at the full-screen one. */
+    static MapView viewOf(UIState ui) {
+        return ui != null && (ui.ui == Context.UI.Fullscreen || ui.ui == Context.UI.Webmap) ? MapView.FULLSCREEN : MapView.MINIMAP;
+    }
+
+    private static void updatePlayer(EntityRadarUpdateEvent event, net.minecraft.client.player.RemotePlayer player, MapView view) {
         int bucket = 0;
         if (MobIconApi.rotateWithHeading(MapMod.JOURNEYMAP)) {
             bucket = MobIconApi.yawBucket(player.yBodyRot + (float) minimapRotation(event.getActiveUiState()));
         }
         // No baked arrow on a player's face: JourneyMap draws its own heading marker for players.
-        ResourceLocation plain = MobIconApi.getResourceIcon(player, bucket, ClientConfig.profile(MapMod.JOURNEYMAP), false); // also queues the render
-        byte[] png = plain == null ? null : MobIconApi.getPng(player, bucket, ClientConfig.profile(MapMod.JOURNEYMAP), false);
+        ResourceLocation plain = MobIconApi.getResourceIcon(player, bucket, ClientConfig.profile(MapMod.JOURNEYMAP, view), false); // also queues the render
+        byte[] png = plain == null ? null : MobIconApi.getPng(player, bucket, ClientConfig.profile(MapMod.JOURNEYMAP, view), false);
         var map = png == null ? null : faces();
         if (map == null) return;
         // The square box JourneyMap draws round a face is sized for its 16 px face, not for our skin model.
@@ -194,13 +203,13 @@ public final class JourneyMapAdapter implements IClientPlugin {
      * JourneyMap's round marker when the marker stays, as is when it is hidden. The unpadded one if
      * fitting fails.
      */
-    private static ResourceLocation paddedIcon(LivingEntity mob, int bucket, FrameRule rule, boolean arrow) {
+    private static ResourceLocation paddedIcon(LivingEntity mob, int bucket, FrameRule rule, boolean arrow, MapView view) {
         // Marker kept: the arrow is not baked in (that shrinks the icon twice, once for the arrow's room and once
         // fitting the marker, and leaves it small and under the marker's border); it is drawn over the fitted icon.
         boolean overlay = arrow && !rule.hideFrame();
         boolean baked = arrow && !overlay;
-        ResourceLocation plain = MobIconApi.getResourceIcon(mob, bucket, ClientConfig.profile(MapMod.JOURNEYMAP).withStyle(rule.body()), baked); // also queues the render
-        byte[] png = plain == null ? null : MobIconApi.getPng(mob, bucket, ClientConfig.profile(MapMod.JOURNEYMAP).withStyle(rule.body()), baked);
+        ResourceLocation plain = MobIconApi.getResourceIcon(mob, bucket, ClientConfig.profile(MapMod.JOURNEYMAP, view).withStyle(rule.body()), baked); // also queues the render
+        byte[] png = plain == null ? null : MobIconApi.getPng(mob, bucket, ClientConfig.profile(MapMod.JOURNEYMAP, view).withStyle(rule.body()), baked);
         if (png == null) return null;
         CRC32 crc = new CRC32();
         crc.update(png);

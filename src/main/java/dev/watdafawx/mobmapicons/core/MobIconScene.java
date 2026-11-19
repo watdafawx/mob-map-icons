@@ -126,7 +126,12 @@ final class MobIconScene {
     //   reload                               resource reload (like F3+T)
     //   cfg <ftbChunks|xaero|journeymap|tint|rotate|arrow> <true|false>, cfg mode <HEAD|FULL_BODY>, cfg size <n>,
     //   cfg style <ICON_STYLE>, cfg jmframe <AUTO|ON|OFF>
-    //   cfg <ftb|xaero|journeymap>.<enabled|style|mode|size|own|players|rotate|arrow|frame> <value>  (per map mod)
+    //   cfg <ftb|xaero|journeymap>.<enabled|style|mode|size|sizemin|sizefull|own|players|rotate|arrow|frame|autodisplay> <value>  (per map mod)
+    //   cfg sizemin|sizefull <n>             global minimap / full-screen icon size
+    //   rclick <x> <y>                       right click at window pixels
+    //   resetclicks / clicks                 zero / log the panel's click counter
+    //   jmdisplay <minimap|fullscreen> <mobDisplay|playerDisplay> <value>   set JourneyMap's own display option
+    //   cfgsave                              save our config file
     //   opts [ftb|xaero|journeymap|global]  toggle the quick options panel, optionally on a section
     //   dump                                 log the quick options panel geometry and rows (window pixels)
     //   maps                                 log the map mods' live own-option values (FTB config, JourneyMap props)
@@ -210,6 +215,22 @@ final class MobIconScene {
             case "config" -> mc.setScreen(new net.neoforged.neoforge.client.gui.ConfigurationScreen(
                     net.neoforged.fml.ModList.get().getModContainerById(dev.watdafawx.mobmapicons.MobMapIcons.MODID).orElseThrow(), mc.screen));
             case "dump" -> QuickOptions.describe().forEach(l -> MobMapIcons.LOG.info("scene: dump {}", l));
+            case "resetclicks" -> QuickOptions.resetClicks();
+            case "clicks" -> MobMapIcons.LOG.info("scene: clicks {}", QuickOptions.clicks());
+            case "rclick" -> {
+                move(mc, window, Double.parseDouble(n[0]), Double.parseDouble(n[1]));
+                var press = net.minecraft.client.MouseHandler.class.getDeclaredMethod("onPress",
+                        long.class, int.class, int.class, int.class);
+                press.setAccessible(true);
+                press.invoke(mc.mouseHandler, window, 1, 1, 0);
+                press.invoke(mc.mouseHandler, window, 1, 0, 0);
+            }
+            case "cfgsave" -> dev.watdafawx.mobmapicons.ClientConfig.SPEC.save();
+            case "jmdisplay" -> {
+                // jmdisplay <minimap|fullscreen> <mobDisplay|playerDisplay> <Dots|Icons|OutlinedIcons|...>: set JourneyMap's value directly
+                var view = n[0].equalsIgnoreCase("fullscreen") ? dev.watdafawx.mobmapicons.api.MapView.FULLSCREEN : dev.watdafawx.mobmapicons.api.MapView.MINIMAP;
+                MapModOptions.jmSetDisplay(view, n[1], n[2]);
+            }
             case "maps" -> MapModOptions.dump();
             case "icon" -> {
                 // icon <STYLE> <MODE> <size> <name>: write the local player's icon PNG to screenshots/<name>.png
@@ -255,7 +276,9 @@ final class MobIconScene {
                         case "enabled" -> sec.enabled.set(on);
                         case "style" -> sec.iconStyle.set(dev.watdafawx.mobmapicons.ClientConfig.StyleChoice.valueOf(val.toUpperCase(java.util.Locale.ROOT)));
                         case "mode" -> sec.iconMode.set(dev.watdafawx.mobmapicons.ClientConfig.ModeChoice.valueOf(val.toUpperCase(java.util.Locale.ROOT)));
-                        case "size" -> sec.iconSize.set(Integer.parseInt(val));
+                        case "size", "sizemin" -> sec.iconSizeMinimap.set(Integer.parseInt(val));
+                        case "sizefull" -> { if (sec.iconSizeFullscreen != null) sec.iconSizeFullscreen.set(Integer.parseInt(val)); }
+                        case "autodisplay" -> { if (sec.autoIconDisplay != null) sec.autoIconDisplay.set(on); }
                         case "own" -> { if (sec.ownPlayer != null) sec.ownPlayer.set(on); }
                         case "players" -> { if (sec.players != null) sec.players.set(dev.watdafawx.mobmapicons.ClientConfig.Tri.valueOf(val.toUpperCase(java.util.Locale.ROOT))); }                        case "rotate" -> { if (sec.rotateWithHeading != null) sec.rotateWithHeading.set(dev.watdafawx.mobmapicons.ClientConfig.Tri.valueOf(val.toUpperCase(java.util.Locale.ROOT))); }
                         case "arrow" -> { if (sec.headingArrow != null) sec.headingArrow.set(dev.watdafawx.mobmapicons.ClientConfig.Tri.valueOf(val.toUpperCase(java.util.Locale.ROOT))); }
@@ -272,7 +295,8 @@ final class MobIconScene {
                     case "tint" -> dev.watdafawx.mobmapicons.ClientConfig.TINT_BY_HOSTILITY.set(on);
                     case "mode" -> dev.watdafawx.mobmapicons.ClientConfig.ICON_MODE.set(
                             dev.watdafawx.mobmapicons.api.IconMode.valueOf(val));
-                    case "size" -> dev.watdafawx.mobmapicons.ClientConfig.ICON_SIZE.set(Integer.parseInt(val));
+                    case "size", "sizemin" -> dev.watdafawx.mobmapicons.ClientConfig.ICON_SIZE_MINIMAP.set(Integer.parseInt(val));
+                    case "sizefull" -> dev.watdafawx.mobmapicons.ClientConfig.ICON_SIZE_FULLSCREEN.set(Integer.parseInt(val));
                     case "style" -> dev.watdafawx.mobmapicons.ClientConfig.ICON_STYLE.set(
                             dev.watdafawx.mobmapicons.api.IconStyle.valueOf(val));
                     case "jmframe" -> dev.watdafawx.mobmapicons.ClientConfig.JOURNEYMAP.journeymapFrame.set(

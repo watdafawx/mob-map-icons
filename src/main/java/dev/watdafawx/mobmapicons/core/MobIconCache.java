@@ -7,6 +7,7 @@ import dev.watdafawx.mobmapicons.MobMapIcons;
 import dev.watdafawx.mobmapicons.api.IconMode;
 import dev.watdafawx.mobmapicons.api.IconProfile;
 import dev.watdafawx.mobmapicons.api.MapMod;
+import dev.watdafawx.mobmapicons.api.MapView;
 import dev.watdafawx.mobmapicons.api.IconStyle;
 import dev.watdafawx.mobmapicons.api.MobIconApi;
 import net.minecraft.client.Minecraft;
@@ -191,8 +192,14 @@ public final class MobIconCache {
     /** Like {@link #getIcon(EntityType)}, in the look {@code mod}'s config asks for. */
     @Nullable
     public static ResourceLocation getIcon(EntityType<?> type, MapMod mod) {
+        return getIcon(type, mod, MapView.MINIMAP);
+    }
+
+    /** Like {@link #getIcon(EntityType, MapMod)} at the icon size {@code mod} uses in {@code view}. */
+    @Nullable
+    public static ResourceLocation getIcon(EntityType<?> type, MapMod mod, MapView view) {
         if (isBlacklisted(type)) return null;
-        return lookup(typeKey(type, ClientConfig.profile(mod)), null).texture();
+        return lookup(typeKey(type, ClientConfig.profile(mod, view)), null).texture();
     }
 
     public static boolean isReady(EntityType<?> type) {
@@ -251,7 +258,13 @@ public final class MobIconCache {
     /** Like {@link #getIcon(Entity, int, MapMod)}, with the heading arrow left out when {@code arrow} is false. */
     @Nullable
     public static ResourceLocation getIcon(Entity entity, int bucket, MapMod mod, boolean arrow) {
-        return best(entity, bucket, ClientConfig.profile(mod), arrow, true).texture();
+        return getIcon(entity, bucket, mod, MapView.MINIMAP, arrow);
+    }
+
+    /** Like {@link #getIcon(Entity, int, MapMod, boolean)} at the icon size {@code mod} uses in {@code view}. */
+    @Nullable
+    public static ResourceLocation getIcon(Entity entity, int bucket, MapMod mod, MapView view, boolean arrow) {
+        return best(entity, bucket, ClientConfig.profile(mod, view), arrow, true).texture();
     }
 
     /** The icon facing the viewer with no heading arrow (for callers that do not know the heading). */
@@ -262,7 +275,12 @@ public final class MobIconCache {
 
     @Nullable
     public static ResourceLocation getIcon(Entity entity, MapMod mod) {
-        return best(entity, 0, ClientConfig.profile(mod), false, true).texture();
+        return getIcon(entity, mod, MapView.MINIMAP);
+    }
+
+    @Nullable
+    public static ResourceLocation getIcon(Entity entity, MapMod mod, MapView view) {
+        return best(entity, 0, ClientConfig.profile(mod, view), false, true).texture();
     }
 
     /** PNG of what {@link #getIcon(Entity, int)} would return. Does not queue. */

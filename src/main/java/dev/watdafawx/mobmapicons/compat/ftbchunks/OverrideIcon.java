@@ -49,11 +49,11 @@ final class OverrideIcon implements MapIcon {
         // built with. Binding a freed id makes the texture manager try to load it from disk (a WARN per
         // mob and a missing-texture frame), so fall back to FTB's own icon until ours is rendered again.
         long t0 = System.nanoTime();
-        ResourceLocation texture = MobIconApi.getIcon(entity, IconDraw.bucket(entity, mapType), MapMod.FTB, arrow);
+        ResourceLocation texture = MobIconApi.getIcon(entity, IconDraw.bucket(entity, mapType), MapMod.FTB, IconDraw.viewOf(mapType), arrow);
         if (texture == null) {
             original.draw(mapType, graphics, x, y, w, h, outsideVisibleArea, iconAlpha);
         } else {
-            IconDraw.quad(graphics, texture, entity, x, y, w, h, iconAlpha);
+            IconDraw.quad(graphics, texture, entity, x, y, w, h, iconAlpha, IconDraw.viewOf(mapType));
         }
         IconDraw.drawNanos += System.nanoTime() - t0;
         IconDraw.drawCount++;

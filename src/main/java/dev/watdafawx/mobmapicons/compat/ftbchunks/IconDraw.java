@@ -10,6 +10,7 @@ import dev.ftb.mods.ftbchunks.api.client.icon.MapType;
 import dev.ftb.mods.ftbchunks.client.FTBChunksClientConfig;
 import dev.watdafawx.mobmapicons.ClientConfig;
 import dev.watdafawx.mobmapicons.api.MapMod;
+import dev.watdafawx.mobmapicons.api.MapView;
 import dev.watdafawx.mobmapicons.api.MobIconApi;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -37,6 +38,11 @@ final class IconDraw {
     static int drawCount;
 
     private IconDraw() {}
+
+    /** FTB's minimap draws at the minimap size, its large map at the full-screen one. */
+    static MapView viewOf(MapType mapType) {
+        return mapType.isLargeMap() ? MapView.FULLSCREEN : MapView.MINIMAP;
+    }
 
     /** Whether FTB's minimap turns with the player (its "locked north" and "square" options are both off). */
     static boolean minimapRotates() {
@@ -77,8 +83,8 @@ final class IconDraw {
      * Draws the icon quad centred in the 18-unit cell at {@code (x, y)} scaled by {@code w / 18}, then
      * restores the state FTB expects.
      */
-    static void quad(GuiGraphics graphics, ResourceLocation texture, Entity tintSource, int x, int y, int w, int h, int iconAlpha) {
-        float size = MobIconApi.iconSize(MapMod.FTB);
+    static void quad(GuiGraphics graphics, ResourceLocation texture, Entity tintSource, int x, int y, int w, int h, int iconAlpha, MapView view) {
+        float size = MobIconApi.iconSize(MapMod.FTB, view);
         int r = tint(tintSource, 0), g = tint(tintSource, 1), b = tint(tintSource, 2);
 
         // Raw quad below: draw anything queued first so layer order holds. GuiGraphics.flush() always
@@ -117,7 +123,7 @@ final class IconDraw {
      * shadow. The text keeps a readable screen size however small FTB scales the icon (minimap icons can
      * be only a few GUI pixels wide), so its scale comes from the pose rather than the icon.
      */
-    static void badge(GuiGraphics graphics, String text, int x, int y, int w, int h, int iconAlpha) {
+    static void badge(GuiGraphics graphics, String text, int x, int y, int w, int h, int iconAlpha, MapView view) {
         Font font = Minecraft.getInstance().font;
         PoseStack pose = graphics.pose();
         pose.pushPose();
@@ -126,11 +132,11 @@ final class IconDraw {
         // GUI pixels per cell unit under the current pose (icons are never rotated, only positioned).
         float guiPerUnit = Math.abs(pose.last().pose().m00());
         if (guiPerUnit > 1e-4f) {
-            float iconGui = CELL * MobIconApi.iconSize(MapMod.FTB) / ClientConfig.DEFAULT_ICON_SIZE * guiPerUnit;
+            float iconGui = CELL * MobIconApi.iconSize(MapMod.FTB, view) / ClientConfig.DEFAULT_ICON_SIZE * guiPerUnit;
             // Glyph cell is 9 font px tall; aim for under half the icon, never under 5 or over 8 GUI px.
             float textGui = Math.max(5f, Math.min(8f, iconGui * 0.45f));
             float k = textGui / 9f / guiPerUnit; // cell units per font pixel
-            float drawn = CELL * MobIconApi.iconSize(MapMod.FTB) / ClientConfig.DEFAULT_ICON_SIZE;
+            float drawn = CELL * MobIconApi.iconSize(MapMod.FTB, view) / ClientConfig.DEFAULT_ICON_SIZE;
             float hi = (CELL + drawn) / 2f;
             float tw = font.width(text) * k;
             pose.translate(hi - tw + 1.5f * k, hi - 8f * k, 0f);
