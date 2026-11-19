@@ -36,6 +36,16 @@ final class IconStyles {
      * margin, so the arrow is never clipped. Inputs remain caller-owned.
      */
     static NativeImage apply(IconStyle style, NativeImage source, NativeImage head, Entity entity, int arrow) {
+        return apply(style,source,head,entity,arrow,0);
+    }
+    /** {@code outlineRgb} (0xRRGGBB, 0 = none) recolours and thickens the OUTLINE edge: Apotheosis bosses. */
+    static NativeImage apply(IconStyle style, NativeImage source, NativeImage head, Entity entity, int arrow, int outlineRgb) {
+        BOSS_OUTLINE=outlineRgb;
+        try { return applyInner(style,source,head,entity,arrow); } finally { BOSS_OUTLINE=0; }
+    }
+    /** Render thread only; set around one {@link #apply}. */
+    private static int BOSS_OUTLINE;
+    private static NativeImage applyInner(IconStyle style, NativeImage source, NativeImage head, Entity entity, int arrow) {
         int n=source.getWidth();
         if(arrow<0) return styled(style,source,head,entity,n);
         int m=Math.max(4,(int)Math.round(n*ARROW_SHRINK)); if(((n-m)&1)!=0) m--;
@@ -170,7 +180,13 @@ final class IconStyles {
                     out.setPixelRGBA(x,y,v);
                 }
             }
-            if(style==IconStyle.OUTLINE || style==IconStyle.SILHOUETTE || style==IconStyle.PAPER_INK) outline(out,style==IconStyle.SILHOUETTE?shade(col,.45):style==IconStyle.PAPER_INK?rgb(40,24,14):rgb(24,18,20));
+            if(style==IconStyle.OUTLINE || style==IconStyle.SILHOUETTE || style==IconStyle.PAPER_INK) {
+                if(style==IconStyle.OUTLINE && BOSS_OUTLINE!=0) {
+                    int c=0xff000000|((BOSS_OUTLINE&255)<<16)|(BOSS_OUTLINE&0xff00)|((BOSS_OUTLINE>>16)&255); // ABGR
+                    outline(out,rgb(24,18,20));
+                    outline(out,c);
+                } else outline(out,style==IconStyle.SILHOUETTE?shade(col,.45):style==IconStyle.PAPER_INK?rgb(40,24,14):rgb(24,18,20));
+            }
             if(style==IconStyle.SHADOW) {
                 int[] pixels=pixels(out);int off=Math.max(1,Math.round(n/14f)),r=Math.max(1,Math.round(n/22f));
                 for(int y=0;y<n;y++) for(int x=0;x<n;x++) {

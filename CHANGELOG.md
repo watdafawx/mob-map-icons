@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.5.0
+
+- Apotheosis invader bosses (client side only, no Apotheosis dependency): the icon is outlined in the boss's rarity
+  colour and its name is shown next to it (FTB Chunks, JourneyMap). Bosses are recognised from what the client sees,
+  the custom name plus a worn affix item named after that boss. Options `apotheosisBossOutline` and
+  `apotheosisBossNames`. Xaero draws one sprite per entity type, so it cannot mark single mobs.
+
 ## 0.4.4
 
 - Quick options panel, faster: one compact view with no scrolling (style, mode, size, rotate, arrow, farm, players, own

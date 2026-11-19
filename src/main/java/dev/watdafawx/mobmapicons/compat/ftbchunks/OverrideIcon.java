@@ -6,7 +6,9 @@ import dev.ftb.mods.ftblibrary.ui.BaseScreen;
 import dev.ftb.mods.ftblibrary.ui.input.Key;
 import dev.ftb.mods.ftblibrary.ui.input.MouseButton;
 import dev.ftb.mods.ftblibrary.util.TooltipList;
+import dev.watdafawx.mobmapicons.ClientConfig;
 import dev.watdafawx.mobmapicons.api.MapMod;
+import dev.watdafawx.mobmapicons.core.ApothBoss;
 import dev.watdafawx.mobmapicons.api.MobIconApi;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
@@ -54,6 +56,10 @@ final class OverrideIcon implements MapIcon {
             original.draw(mapType, graphics, x, y, w, h, outsideVisibleArea, iconAlpha);
         } else {
             IconDraw.quad(graphics, texture, entity, x, y, w, h, iconAlpha, IconDraw.viewOf(mapType));
+        }
+        if (ClientConfig.apotheosisBossNames()) {
+            var name = ApothBoss.name(entity);
+            if (name != null) IconDraw.label(graphics, name, ApothBoss.color(entity), x, y, w, h, iconAlpha, IconDraw.viewOf(mapType));
         }
         IconDraw.drawNanos += System.nanoTime() - t0;
         IconDraw.drawCount++;

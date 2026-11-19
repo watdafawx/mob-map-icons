@@ -249,6 +249,27 @@ final class MobIconScene {
             case "screen" -> MobMapIcons.LOG.info("scene: screen {}", mc.screen == null ? null : mc.screen.getClass().getName());
             case "jmreset" -> MapModOptions.jmReset();
             case "jmsave" -> MapModOptions.jmSaveCore();
+            case "tree" -> {
+                var server = mc.getSingleplayerServer();
+                var d = server.getCommands().getDispatcher();
+                var node = d.getRoot().getChild(arg);
+                MobMapIcons.LOG.info("scene: tree {} -> {}", arg, node == null ? "none" : d.getSmartUsage(node, server.createCommandSourceStack()).values());
+            }
+            case "bossdump" -> {
+                var type = net.minecraft.core.registries.BuiltInRegistries.DATA_COMPONENT_TYPE.getOptional(
+                        net.minecraft.resources.ResourceLocation.parse("apotheosis:affix_name")).orElse(null);
+                for (var e : mc.level.entitiesForRendering()) {
+                    if (!(e instanceof net.minecraft.world.entity.LivingEntity l) || l.getCustomName() == null) continue;
+                    MobMapIcons.LOG.info("scene: bossdump {} name='{}' is={}", l.getType(), l.getCustomName().getString(), ApothBoss.is(l));
+                    for (var slot : net.minecraft.world.entity.EquipmentSlot.values()) {
+                        var st = l.getItemBySlot(slot);
+                        if (st.isEmpty()) continue;
+                        Object v = type == null ? null : st.get(type);
+                        MobMapIcons.LOG.info("scene: bossdump   {} {} affix_name={}", slot, st.getItem(),
+                                v instanceof net.minecraft.network.chat.Component c ? c.getContents().getClass().getSimpleName() + " " + c.getContents() : v);
+                    }
+                }
+            }
             case "quit" -> mc.stop();
             case "log" -> MobMapIcons.LOG.info("scene: {}", arg);
             case "players" -> spawnPlayers(mc);

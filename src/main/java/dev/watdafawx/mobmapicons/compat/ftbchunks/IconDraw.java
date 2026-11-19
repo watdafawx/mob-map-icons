@@ -119,6 +119,33 @@ final class IconDraw {
     }
 
     /**
+     * A boss's name centred under its icon cell, in {@code rgb}, with a shadow. Same pose handling as
+     * {@link #badge}: readable GUI size however small FTB scales the icon.
+     */
+    static void label(GuiGraphics graphics, net.minecraft.network.chat.Component name, int rgb, int x, int y, int w, int h, int iconAlpha, MapView view) {
+        Font font = Minecraft.getInstance().font;
+        PoseStack pose = graphics.pose();
+        pose.pushPose();
+        pose.translate((float) x, (float) y, 0f);
+        pose.scale(w / CELL, h / CELL, 1f);
+        float guiPerUnit = Math.abs(pose.last().pose().m00());
+        if (guiPerUnit > 1e-4f) {
+            float k = 7f / 9f / guiPerUnit; // cell units per font pixel: 7 GUI px text
+            float drawn = CELL * MobIconApi.iconSize(MapMod.FTB, view) / ClientConfig.DEFAULT_ICON_SIZE;
+            float hi = (CELL + drawn) / 2f;
+            float tw = font.width(name) * k;
+            pose.translate(CELL / 2f - tw / 2f, hi + 0.5f * k, 0f);
+            pose.scale(k, k, 1f);
+            boolean depth = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
+            font.drawInBatch(name.getVisualOrderText(), 0f, 0f, (Math.max(iconAlpha, 16) << 24) | (rgb & 0xFFFFFF), true,
+                    pose.last().pose(), graphics.bufferSource(), Font.DisplayMode.SEE_THROUGH, 0, 0xF000F0);
+            graphics.flush();
+            if (!depth) RenderSystem.disableDepthTest();
+        }
+        pose.popPose();
+    }
+
+    /**
      * Count badge in the bottom-right corner of the icon cell at {@code (x, y, w, h)}: white text with a
      * shadow. The text keeps a readable screen size however small FTB scales the icon (minimap icons can
      * be only a few GUI pixels wide), so its scale comes from the pose rather than the icon.

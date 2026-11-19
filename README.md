@@ -138,6 +138,17 @@ JourneyMap has no count badge, so there the count is the label (`144 x Cow`) and
 
 Turn it off with `players = false` to get the map mods' faces back. Xaero keeps its own player heads.
 
+## Apotheosis bosses
+
+<p align="center">
+  <img src="docs/screenshots/apotheosis-bosses-ftb.png" alt="FTB Chunks: three Apotheosis bosses with rarity-coloured outlines and names" width="800">
+</p>
+<p align="center">
+  <img src="docs/screenshots/apotheosis-bosses-journeymap.png" alt="JourneyMap: two Apotheosis bosses outlined in their rarity colour with their names" width="480">
+</p>
+
+Apotheosis invader bosses get an outline in their rarity colour and their name under the icon (FTB Chunks, JourneyMap). Client side only, no Apotheosis dependency: a boss is recognised from its custom name plus a worn affix item named after it. Options `apotheosisBossOutline` and `apotheosisBossNames` (both on). Xaero draws one sprite per mob type, so it cannot mark single mobs.
+
 ## Screenshots
 
 | FTB Chunks minimap | FTB Chunks large map |

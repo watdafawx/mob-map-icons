@@ -373,6 +373,7 @@ public final class MobIconCache {
      */
     private static Key headingKey(EntityType<?> type, @Nullable IconVariant variant, int bucket, IconProfile profile, boolean arrow) {
         int b = Math.floorMod(bucket, MobIconApi.YAW_BUCKETS);
+        if (variant != null && variant.boss() != 0) profile = profile.withStyle(IconStyle.OUTLINE); // Apotheosis boss
         return new Key(type, variant, profile.rotate() ? b : 0, specOf(profile), arrow && profile.arrow() ? b : -1);
     }
 
@@ -650,7 +651,7 @@ public final class MobIconCache {
                     shared = true;
                 }
             }
-            image = IconStyles.apply(key.style(), raw, head, entity, key.arrow());
+            image = IconStyles.apply(key.style(), raw, head, entity, key.arrow(), key.variant() == null ? 0 : key.variant().boss());
             byte[] png = image.asByteArray();
             ResourceLocation id = ResourceLocation.fromNamespaceAndPath(MobMapIcons.MODID, "icons/"
                     + typeId.getNamespace() + "/" + typeId.getPath() + "/"

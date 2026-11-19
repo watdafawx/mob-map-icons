@@ -38,6 +38,9 @@ Minecraft 1.21.1, NeoForge 21.1.250
 FTB Chunks 2101.1.24, FTB Library 2101.1.40, FTB Teams 2101.1.12, Architectury 13.0.12
 Xaero's Minimap 26.6.0, Xaero's World Map 1.47.0
 JourneyMap 6.0.9
+apotheosis-bosses-ftb.png FTB Chunks large map, 3 Apotheosis bosses (zombie, skeleton, vindicator) spawned with /apoth
+                         spawn_boss, [ftb] sizefull 40. Uncropped 1920x1080 frame .
+apotheosis-bosses-journeymap.png JourneyMap full-screen map, two vindicator bosses (mythic, epic), 2x crop of the frame.
 
 Notes
 -----

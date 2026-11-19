@@ -305,6 +305,17 @@ public final class ClientConfig {
             .translation("mob_map_icons.configuration.tintByHostility")
             .define("tintByHostility", false);
 
+    public static final ModConfigSpec.BooleanValue APOTHEOSIS_BOSS_OUTLINE = BUILDER
+            .comment("Apotheosis: draw its invader bosses with an outline in the boss's rarity colour. Client side only:",
+                    "bosses are recognised from what the client can see (their name and affix gear).")
+            .translation("mob_map_icons.configuration.apotheosisBossOutline")
+            .define("apotheosisBossOutline", true);
+
+    public static final ModConfigSpec.BooleanValue APOTHEOSIS_BOSS_NAMES = BUILDER
+            .comment("Apotheosis: show the name of each invader boss next to its icon (FTB Chunks, JourneyMap).")
+            .translation("mob_map_icons.configuration.apotheosisBossNames")
+            .define("apotheosisBossNames", true);
+
     public static final ModConfigSpec.IntValue MAX_ICONS = BUILDER
             .comment("Most mob icons drawn at once, nearest to the player first. 0 = no limit.")
             .translation("mob_map_icons.configuration.maxIcons")
@@ -393,6 +404,14 @@ public final class ClientConfig {
 
     public static boolean tintByHostility() {
         try { return TINT_BY_HOSTILITY.get(); } catch (IllegalStateException notLoaded) { return false; }
+    }
+
+    public static boolean apotheosisBossOutline() {
+        try { return APOTHEOSIS_BOSS_OUTLINE.get(); } catch (IllegalStateException notLoaded) { return true; }
+    }
+
+    public static boolean apotheosisBossNames() {
+        try { return APOTHEOSIS_BOSS_NAMES.get(); } catch (IllegalStateException notLoaded) { return true; }
     }
 
     public static boolean farmMode() {
@@ -565,7 +584,7 @@ public final class ClientConfig {
     public static java.util.List<Object> iconSettings() {
         return java.util.List.of(profile(MapMod.GLOBAL), profile(MapMod.FTB), profile(MapMod.XAERO), profile(MapMod.JOURNEYMAP),
                 profile(MapMod.GLOBAL, MapView.FULLSCREEN), profile(MapMod.FTB, MapView.FULLSCREEN),
-                profile(MapMod.XAERO, MapView.FULLSCREEN), profile(MapMod.JOURNEYMAP, MapView.FULLSCREEN), tintByHostility(), farmMode(), players(), maxIcons(), clusterRadius(), clusterMinCount(), xaeroScale(), blacklist());
+                profile(MapMod.XAERO, MapView.FULLSCREEN), profile(MapMod.JOURNEYMAP, MapView.FULLSCREEN), tintByHostility(), apotheosisBossOutline(), farmMode(), players(), maxIcons(), clusterRadius(), clusterMinCount(), xaeroScale(), blacklist());
     }
 
     /** Keeps a typo out of the list: every entry has to parse as a resource location. */

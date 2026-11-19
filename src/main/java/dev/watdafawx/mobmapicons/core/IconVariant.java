@@ -44,7 +44,7 @@ import java.util.Objects;
  * <p>Equipment is not copied either (the client gets it by a separate packet, not synced data), so
  * icons show mobs without armour or held items, the same as the per-type icon always did.
  */
-record IconVariant(@Nullable ResourceLocation texture, boolean baby, int scale, @Nullable String extra) {
+record IconVariant(@Nullable ResourceLocation texture, boolean baby, int scale, @Nullable String extra, int boss) {
 
     /** Within this ratio of the type's standard size, a mob counts as standard size. */
     private static final float SCALE_TOLERANCE = 0.05F;
@@ -61,7 +61,7 @@ record IconVariant(@Nullable ResourceLocation texture, boolean baby, int scale, 
             // A renderer that needs more state than a lookup gives; the other fields still separate variants.
         }
         boolean baby = entity instanceof LivingEntity living && living.isBaby();
-        return new IconVariant(texture, baby, scaleStep(entity), extra(entity));
+        return new IconVariant(texture, baby, scaleStep(entity), extra(entity), ApothBoss.outlineColor(entity));
     }
 
     private static int scaleStep(Entity entity) {
@@ -119,13 +119,14 @@ record IconVariant(@Nullable ResourceLocation texture, boolean baby, int scale, 
         if (extra != null) parts.add(extra);
         if (baby) parts.add("baby");
         if (scale != 0) parts.add("s" + scale);
+        if (boss != 0) parts.add("boss");
         String label = String.join("_", parts).toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_.-]", "_");
         return label.isEmpty() ? "default" : label;
     }
 
     /** Stable 64-bit FNV-1a hash of the key as hex, for resource paths. */
     String hash() {
-        String s = Objects.toString(texture) + '|' + baby + '|' + scale + '|' + extra;
+        String s = Objects.toString(texture) + '|' + baby + '|' + scale + '|' + extra + '|' + boss;
         long h = 0xcbf29ce484222325L;
         for (int i = 0; i < s.length(); i++) {
             h ^= s.charAt(i);

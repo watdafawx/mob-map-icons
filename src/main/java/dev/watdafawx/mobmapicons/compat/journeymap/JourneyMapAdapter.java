@@ -93,6 +93,13 @@ public final class JourneyMapAdapter implements IClientPlugin {
             wrapped.setCustomName(Component.literal(verdict.count() + " x ").append(type.getDescription()));
         }
 
+        // Apotheosis boss: its name on the map, in the rarity colour.
+        boolean boss = dev.watdafawx.mobmapicons.core.ApothBoss.is(mob);
+        if (boss && ClientConfig.apotheosisBossNames()) {
+            wrapped.setCustomName(mob.getCustomName());
+            wrapped.setLabelColor(dev.watdafawx.mobmapicons.core.ApothBoss.color(mob));
+        }
+
         int bucket = 0;
         if (MobIconApi.usesHeading(MapMod.JOURNEYMAP)) {
             bucket = MobIconApi.yawBucket(mob.yBodyRot + (float) minimapRotation(ui));
@@ -111,7 +118,8 @@ public final class JourneyMapAdapter implements IClientPlugin {
             wrapped.setEntityIconLocation(icon);
             // The marker's black border is JourneyMap's per-entity flag (reset to true on every update); its
             // coloured fill can only be hidden for all mobs at once, see FrameHider.
-            wrapped.setDrawOutline(!rule.hideFrame());
+            // A boss keeps our rarity-coloured outline instead of JourneyMap's black border.
+            wrapped.setDrawOutline(!rule.hideFrame() && !(boss && ClientConfig.apotheosisBossOutline()));
         }
         // No marker drawn: leave the fill alone (players' pins share it).
         FrameHider.setFillHidden(marker && rule.hideFrame());
