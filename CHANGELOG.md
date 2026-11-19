@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.4.4 (unreleased)
+## 0.4.4
 
 - Quick options panel, faster: one compact view with no scrolling (style, mode, size, rotate, arrow, farm, players, own
   icon). Style, mode and the on/off/global rows step on a click and on the mouse wheel over the row; right click or
