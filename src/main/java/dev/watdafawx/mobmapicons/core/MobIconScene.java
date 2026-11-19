@@ -128,6 +128,10 @@ final class MobIconScene {
     //   cfg style <ICON_STYLE>, cfg jmframe <AUTO|ON|OFF>
     //   cfg <ftb|xaero|journeymap>.<enabled|style|mode|size|own|players|rotate|arrow|frame> <value>  (per map mod)
     //   opts [ftb|xaero|journeymap|global]  toggle the quick options panel, optionally on a section
+    //   dump                                 log the quick options panel geometry and rows (window pixels)
+    //   maps                                 log the map mods' live own-option values (FTB config, JourneyMap props)
+    //   jmsave                               force JourneyMap to save its core properties file now
+    //   quit                                 stop the game normally (saves configs)
     //   log <text>                           echo to the log
     //   players                              (re)spawn the two fake remote players
     //   cfgplayers <true|false>              the `players` config option
@@ -205,6 +209,26 @@ final class MobIconScene {
             case "reload" -> mc.reloadResourcePacks();
             case "config" -> mc.setScreen(new net.neoforged.neoforge.client.gui.ConfigurationScreen(
                     net.neoforged.fml.ModList.get().getModContainerById(dev.watdafawx.mobmapicons.MobMapIcons.MODID).orElseThrow(), mc.screen));
+            case "dump" -> QuickOptions.describe().forEach(l -> MobMapIcons.LOG.info("scene: dump {}", l));
+            case "maps" -> MapModOptions.dump();
+            case "icon" -> {
+                // icon <STYLE> <MODE> <size> <name>: write the local player's icon PNG to screenshots/<name>.png
+                var prof = new dev.watdafawx.mobmapicons.api.IconProfile(dev.watdafawx.mobmapicons.api.IconStyle.valueOf(n[0]),
+                        dev.watdafawx.mobmapicons.api.IconMode.valueOf(n[1]), Integer.parseInt(n[2]), false, false);
+                dev.watdafawx.mobmapicons.api.MobIconApi.getResourceIcon(mc.player, 0, prof, false);
+                byte[] png = dev.watdafawx.mobmapicons.api.MobIconApi.getPng(mc.player, 0, prof, false);
+                if (png == null) MobMapIcons.LOG.info("scene: icon {} not ready", n[3]);
+                else {
+                    Files.createDirectories(mc.gameDirectory.toPath().resolve("screenshots"));
+                    Files.write(mc.gameDirectory.toPath().resolve("screenshots").resolve(n[3] + ".png"), png);
+                    MobMapIcons.LOG.info("scene: icon {} written", n[3]);
+                }
+            }
+            case "jmoptions" -> MapModOptions.jmOptions();
+            case "screen" -> MobMapIcons.LOG.info("scene: screen {}", mc.screen == null ? null : mc.screen.getClass().getName());
+            case "jmreset" -> MapModOptions.jmReset();
+            case "jmsave" -> MapModOptions.jmSaveCore();
+            case "quit" -> mc.stop();
             case "log" -> MobMapIcons.LOG.info("scene: {}", arg);
             case "players" -> spawnPlayers(mc);
             case "opts" -> { if (arg.isEmpty()) QuickOptions.toggle(); else QuickOptions.openOn(arg); }

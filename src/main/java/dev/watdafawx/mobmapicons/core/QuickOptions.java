@@ -341,6 +341,31 @@ public final class QuickOptions {
         }
     }
 
+    /** Dev harness: panel geometry and rows as "idx y-in-window-pixels type label", for the scene driver. */
+    static List<String> describe() {
+        List<String> out = new ArrayList<>();
+        Minecraft mc = Minecraft.getInstance();
+        Screen screen = mc.screen;
+        if (!open || screen == null) {
+            out.add("panel closed");
+            return out;
+        }
+        build();
+        int h = height();
+        int x = x(screen.width), y = y(screen.height, h);
+        double scale = mc.getWindow().getGuiScale();
+        out.add("panel x=" + x + " y=" + y + " w=" + W + " h=" + h + " scale=" + scale
+                + " ctx=" + ctx + " px: x=" + (int) ((x + W / 2.0) * scale));
+        int ry = y + HEADER + PAD;
+        for (int i = 0; i < rows.size(); i++) {
+            Row r = rows.get(i);
+            String label = r instanceof Action a ? a.entry.key() + "=" + a.entry.value().get() : "";
+            out.add("row " + i + " py=" + (int) ((ry + ROW / 2.0) * scale) + " " + r.getClass().getSimpleName() + " " + label);
+            ry += ROW + 2;
+        }
+        return out;
+    }
+
     private static void build() {
         if (rows != null) return;
         rows = new ArrayList<>();

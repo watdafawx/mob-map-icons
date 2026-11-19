@@ -33,7 +33,7 @@ final class OwnArrow {
     private static final IconProfile PROFILE_BASE = new IconProfile(IconStyle.TOP_DOWN, IconMode.FULL_BODY,
             ClientConfig.DEFAULT_ICON_SIZE * 2, false, false);
 
-    private static boolean failed;
+    private static boolean failed, hooked;
     private static Method getTexture;
     private static ResourceLocation arrowId, arrowBgId;
 
@@ -46,7 +46,17 @@ final class OwnArrow {
     private OwnArrow() {}
 
     static void tick() {
-        if (failed || ++ticks % 5 != 0) return;
+        if (failed) return;
+        if (!hooked) {
+            hooked = true;
+            // A save at shutdown must not see the white we put in; leave the user's value behind.
+            net.neoforged.neoforge.common.NeoForge.EVENT_BUS.addListener(
+                    (net.neoforged.neoforge.event.GameShuttingDownEvent e) -> unwhiten());
+        }
+        // JourneyMap writes its whole core config (colorSelf included) when one of its option screens is
+        // closed, so the user's colour must be back in place before any of them can be used. Checked every tick.
+        if (origTint != null && jmOptionsOpen()) unwhiten();
+        if (++ticks % 5 != 0) return;
         try {
             var player = Minecraft.getInstance().player;
             if (player != null && ClientConfig.journeyMapEnabled() && ClientConfig.ownPlayer(MapMod.JOURNEYMAP)) {
@@ -87,7 +97,10 @@ final class OwnArrow {
         byte[] png = MobIconApi.getPng(player, 0, profile, false);
         if (png == null) return;
         int hash = Arrays.hashCode(png);
-        if (arrow == fg && back == bg && hash == writtenHash) return; // nothing changed
+        if (arrow == fg && back == bg && hash == writtenHash) { // nothing changed
+            if (origTint == null && !jmOptionsOpen()) whiten(); // back from an options screen
+            return;
+        }
         if (fg != null && (arrow != fg || back != bg)) forget(); // JourneyMap made new textures: ours are gone with the old ones
         if (origFg == null) {
             origFg = copy(arrow.getPixels());
@@ -96,13 +109,7 @@ final class OwnArrow {
         NativeImage pixels = arrow.getPixels();
         try (NativeImage icon = NativeImage.read(new ByteArrayInputStream(png))) {
             pixels.fillRect(0, 0, pixels.getWidth(), pixels.getHeight(), 0);
-            // Keep the icon's aspect ratio, centred.
-            int side = Math.min(pixels.getWidth(), pixels.getHeight());
-            int x = (pixels.getWidth() - side) / 2, y = (pixels.getHeight() - side) / 2;
-            try (NativeImage scratch = new NativeImage(NativeImage.Format.RGBA, side, side, true)) {
-                icon.resizeSubRectTo(0, 0, icon.getWidth(), icon.getHeight(), scratch);
-                scratch.copyRect(pixels, 0, 0, x, y, side, side, false, false);
-            }
+            compose(icon, pixels);
         } catch (java.io.IOException e) {
             throw new IllegalStateException(e);
         }
@@ -110,12 +117,102 @@ final class OwnArrow {
         NativeImage bgPixels = back.getPixels();
         bgPixels.fillRect(0, 0, bgPixels.getWidth(), bgPixels.getHeight(), 0);
         back.upload();
-        whiten();
+        if (!jmOptionsOpen()) whiten();
         fg = arrow;
         bg = back;
         writtenHash = hash;
     }
 
+
+    /** True while a JourneyMap screen other than the fullscreen map (its options and dialogs) is open. */
+    private static boolean jmOptionsOpen() {
+        var screen = Minecraft.getInstance().screen;
+        if (screen == null) return false;
+        String name = screen.getClass().getName();
+        return name.startsWith("journeymap.") && !name.contains(".fullscreen.");
+    }
+
+    /**
+     * Draws the top-down figure big and crisp into {@code dst}: the opaque part of the icon is cropped out and
+     * scaled to fill the square, a white front marker is added above it (the figure alone is nearly symmetric,
+     * so the heading would not be readable) and everything gets a dark outline so it stands out on any map.
+     */
+    private static void compose(NativeImage icon, NativeImage dst) {
+        int side = Math.min(dst.getWidth(), dst.getHeight());
+        int offX = (dst.getWidth() - side) / 2, offY = (dst.getHeight() - side) / 2;
+        int x0 = icon.getWidth(), y0 = icon.getHeight(), x1 = -1, y1 = -1;
+        for (int y = 0; y < icon.getHeight(); y++) {
+            for (int x = 0; x < icon.getWidth(); x++) {
+                if ((icon.getPixelRGBA(x, y) >>> 24) > 24) {
+                    x0 = Math.min(x0, x);
+                    y0 = Math.min(y0, y);
+                    x1 = Math.max(x1, x);
+                    y1 = Math.max(y1, y);
+                }
+            }
+        }
+        if (x1 < 0) return;
+        int bw = x1 - x0 + 1, bh = y1 - y0 + 1;
+        int m = Math.max(1, side / 24);
+        int chev = Math.max(3, Math.round(side * 0.22F));
+        float availW = side - 2 * m, availH = side - 2 * m - chev;
+        float sc = Math.min(availW / bw, availH / bh);
+        int dw = Math.max(1, Math.round(bw * sc)), dh = Math.max(1, Math.round(bh * sc));
+        int fx = (side - dw) / 2, fy = m + chev + Math.round((availH - dh) / 2F);
+        int[] buf = new int[side * side];
+        for (int j = 0; j < dh; j++) {
+            for (int i = 0; i < dw; i++) {
+                // Box average over the source pixels this one covers, weighted by alpha.
+                int sx0 = x0 + (int) Math.floor(i / sc), sx1 = Math.min(x1, x0 + Math.max((int) Math.floor(i / sc), (int) Math.ceil((i + 1) / sc) - 1));
+                int sy0 = y0 + (int) Math.floor(j / sc), sy1 = Math.min(y1, y0 + Math.max((int) Math.floor(j / sc), (int) Math.ceil((j + 1) / sc) - 1));
+                long sa = 0, sr = 0, sg = 0, sb = 0;
+                int n = 0;
+                for (int yy = sy0; yy <= sy1; yy++) {
+                    for (int xx = sx0; xx <= sx1; xx++) {
+                        int p = icon.getPixelRGBA(Math.min(xx, x1), Math.min(yy, y1));
+                        int a = p >>> 24;
+                        sa += a;
+                        sr += (long) (p & 255) * a;
+                        sg += (long) ((p >> 8) & 255) * a;
+                        sb += (long) ((p >> 16) & 255) * a;
+                        n++;
+                    }
+                }
+                if (n == 0 || sa == 0) continue;
+                int a = (int) (sa / n);
+                buf[(fy + j) * side + fx + i] = a < 96 ? 0
+                        : 0xFF000000 | ((int) (sb / sa) << 16) | ((int) (sg / sa) << 8) | (int) (sr / sa);
+            }
+        }
+        // Front marker: a white triangle pointing up, centred above the figure.
+        float half = chev * 0.95F;
+        for (int r = 0; r < chev; r++) {
+            int w = Math.max(0, Math.round(half * (r + 0.5F) / chev));
+            for (int x = side / 2 - w; x <= side / 2 + w - (w == 0 ? 1 : 0); x++) {
+                if (x >= 0 && x < side) buf[(m + r) * side + x] = 0xFFFFFFFF;
+            }
+        }
+        // Dark outline round everything that is drawn.
+        int rad = Math.max(1, side / 32);
+        int[] out = buf.clone();
+        for (int y = 0; y < side; y++) {
+            for (int x = 0; x < side; x++) {
+                if (buf[y * side + x] != 0) continue;
+                boolean edge = false;
+                for (int dy = -rad; dy <= rad && !edge; dy++) {
+                    for (int dx = -rad; dx <= rad && !edge; dx++) {
+                        int xx = x + dx, yy = y + dy;
+                        if (xx >= 0 && yy >= 0 && xx < side && yy < side && buf[yy * side + xx] != 0) edge = true;
+                    }
+                }
+                if (edge) out[y * side + x] = 0xFF161616;
+            }
+        }
+        for (int y = 0; y < side; y++) {
+            // JourneyMap's arrow texture has its front at the bottom (it turns it by yaw + 180), so flip the layout.
+            for (int x = 0; x < side; x++) dst.setPixelRGBA(offX + x, offY + side - 1 - y, out[y * side + x]);
+        }
+    }
 
     // ---- JourneyMap multiplies the marker by its "self" colour; white leaves our icon's own colours ----
 

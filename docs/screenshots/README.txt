@@ -178,3 +178,28 @@ permod-jm-own-on-vs-off.png   JourneyMap fullscreen: left ownPlayer on (top-down
 
 Limits: Xaero has no own-icon (its arrow is drawn from code). On JourneyMap the own icon is a fixed top-down view.
 The Xaero radar shows dots in these shots because Xaero's "Display icons" was left at its default.
+
+
+Verify run (2026-11-19, branch verify)
+--------------------------------------
+Taken on rig with `runScene` (FTB Chunks 2101.1.24 + JourneyMap 6.0.9, FTB minimap bottom right, JM minimap top right,
+2x nearest-neighbour crops of the real frame, Pillow labels, palette-reduced). Panel rows clicked by real mouse clicks
+(`dump` scene step gives row positions); live values read back with the `maps` step; files read on rig after each click.
+
+verify-ftb-panel-rows.png          FTB minimap: base, large icons OFF (icons shrink), entity heads OFF, player heads OFF. Each
+                                   click flipped MINIMAP_* in FTBChunksClientConfig and ftbchunks-client.snbt, a second click restored it.
+verify-jm-panel-rows.png           JM minimap: base, mob heading OFF (JM arrows appear), show self OFF (blue marker gone),
+                                   mob scale 1.0 / 1.5, mob 2.0 + self 1.5. Fixed here: scale rows did nothing live because
+                                   JourneyMap's MiniMap holds its own properties object; the rows now re-point it at the active one.
+verify-jm-own-minimap.png          JM minimap, ownPlayer on: old icon (flat purple square, no heading cue) vs new icon (outlined
+                                   top-down figure, white front marker), 2 zoom steps closer.
+verify-jm-own-heading.png          New own icon at yaw north / east / south / west: the front marker follows the heading.
+verify-jm-own-fullmap.png          JM fullscreen map, new own icon, zoomed in.
+verify-ftb-own-face.png            FTB minimap, ftb.ownPlayer off vs on.
+verify-panel-context-minimaps.png  Panel over the in-world HUD (FTB minimap bottom right, JM minimap top right): opens on the
+                                   FTB tab (left) and on the JM tab (right) with each mod's own rows.
+
+colorSelf: with JM ownPlayer on, `colorSelf` is white in memory only. Forced `CoreProperties.save()` used to write "#ffffff"
+into journeymap.core.config. Now the user's colour is put back whenever a JourneyMap screen other than the fullscreen map
+(options, dialogs) is open and on GameShuttingDownEvent; the file stayed "#0000ff" through options open/close, panel toggles
+and a normal quit. A save forced by hand while the map is showing still writes white (only the dev `jmsave` step does that).

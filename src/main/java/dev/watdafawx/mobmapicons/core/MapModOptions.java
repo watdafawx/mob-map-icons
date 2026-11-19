@@ -120,12 +120,104 @@ final class MapModOptions {
                         return;
                     }
                     save.invoke(f);
+                    syncJmMinimap(client);
                 } catch (ReflectiveOperationException | RuntimeException e) {
                     MobMapIcons.LOG.debug("Quick options: JourneyMap write failed", e);
                 }
             }));
         } catch (ReflectiveOperationException | RuntimeException e) {
             MobMapIcons.LOG.debug("Quick options: JourneyMap option {} unavailable", name, e);
+        }
+    }
+
+    /**
+     * The minimap holds its own reference to a properties object ({@code MiniMap.miniMapProperties}) that is not
+     * always the one {@code getActiveMiniMapProperties()} returns, and it draws mob and self scale from that one.
+     * Point it at the object we just wrote, the way JourneyMap's own preset switch does.
+     */
+    private static void syncJmMinimap(Object client) {
+        try {
+            Object props = client.getClass().getMethod("getActiveMiniMapProperties").invoke(client);
+            Object ui = Class.forName("journeymap.client.ui.UIManager").getField("INSTANCE").get(null);
+            Object mini = ui.getClass().getMethod("getMinimap").invoke(ui);
+            if (mini == null || props == null) return;
+            Object cur = mini.getClass().getMethod("getCurrentMinimapProperties").invoke(mini);
+            if (cur == props) return;
+            for (Method m : mini.getClass().getMethods()) {
+                if (m.getName().equals("setMiniMapProperties") && m.getParameterCount() == 1) {
+                    m.invoke(mini, props);
+                    return;
+                }
+            }
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            MobMapIcons.LOG.debug("JourneyMap minimap not re-pointed", e);
+        }
+    }
+
+    // ---- dev harness (MobIconScene): log live values / force a JourneyMap save ----
+
+    static void dump() {
+        try {
+            Class<?> cfg = Class.forName("dev.ftb.mods.ftbchunks.client.FTBChunksClientConfig");
+            for (String name : new String[] {"MINIMAP_LARGE_ENTITIES", "MINIMAP_ENTITY_HEADS", "MINIMAP_PLAYER_HEADS"}) {
+                Object v = cfg.getField(name).get(null);
+                MobMapIcons.LOG.info("scene: maps ftb.{}={}", name, v.getClass().getMethod("get").invoke(v));
+            }
+        } catch (Throwable t) {
+            MobMapIcons.LOG.info("scene: maps ftb n/a {}", t.toString());
+        }
+        try {
+            Object client = Class.forName("journeymap.client.JourneymapClient").getMethod("getInstance").invoke(null);
+            Object props = client.getClass().getMethod("getActiveMiniMapProperties").invoke(client);
+            for (String name : new String[] {"showMobHeading", "showSelf", "mobDisplayScale", "selfDisplayScale"}) {
+                Object v = props.getClass().getField(name).get(props);
+                MobMapIcons.LOG.info("scene: maps jm.{}={}", name, v.getClass().getMethod("get").invoke(v));
+            }
+            Object ui = Class.forName("journeymap.client.ui.UIManager").getField("INSTANCE").get(null);
+            Object mini = ui.getClass().getMethod("getMinimap").invoke(ui);
+            Object cur = mini.getClass().getMethod("getCurrentMinimapProperties").invoke(mini);
+            Object cf = cur.getClass().getField("mobDisplayScale").get(cur);
+            MobMapIcons.LOG.info("scene: maps jm.minimapProps same={} cur.mobDisplayScale={} activeId={}",
+                    cur == props, cf.getClass().getMethod("get").invoke(cf), System.identityHashCode(props));
+            Object core = client.getClass().getMethod("getCoreProperties").invoke(client);
+            Object colour = core.getClass().getField("colorSelf").get(core);
+            MobMapIcons.LOG.info("scene: maps jm.colorSelf(live)={}", colour.getClass().getMethod("get").invoke(colour));
+        } catch (Throwable t) {
+            MobMapIcons.LOG.info("scene: maps jm n/a {}", t.toString());
+        }
+    }
+
+    /** Dev harness: open JourneyMap's options screen (the one that saves its core config when closed). */
+    static void jmOptions() {
+        try {
+            Object ui = Class.forName("journeymap.client.ui.UIManager").getField("INSTANCE").get(null);
+            Object screen = ui.getClass().getMethod("openOptionsManager", net.minecraft.client.gui.screens.Screen.class, boolean.class)
+                    .invoke(ui, null, false);
+            MobMapIcons.LOG.info("scene: jmoptions opened {}", screen == null ? null : screen.getClass().getName());
+        } catch (Throwable t) {
+            MobMapIcons.LOG.info("scene: jmoptions failed {}", t.toString());
+        }
+    }
+
+    static void jmReset() {
+        try {
+            Object ui = Class.forName("journeymap.client.ui.UIManager").getField("INSTANCE").get(null);
+            Object mini = ui.getClass().getMethod("getMinimap").invoke(ui);
+            mini.getClass().getMethod("reset").invoke(mini);
+            MobMapIcons.LOG.info("scene: jmreset done");
+        } catch (Throwable t) {
+            MobMapIcons.LOG.info("scene: jmreset failed {}", t.toString());
+        }
+    }
+
+    static void jmSaveCore() {
+        try {
+            Object client = Class.forName("journeymap.client.JourneymapClient").getMethod("getInstance").invoke(null);
+            Object core = client.getClass().getMethod("getCoreProperties").invoke(client);
+            core.getClass().getMethod("save").invoke(core);
+            MobMapIcons.LOG.info("scene: jmsave core saved");
+        } catch (Throwable t) {
+            MobMapIcons.LOG.info("scene: jmsave failed {}", t.toString());
         }
     }
 
